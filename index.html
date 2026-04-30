@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immersive Video Playlist</title>
+    <style>
+        /* Base Reset */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f0f0f;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .fullscreen-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Blank State Message */
+        .blank-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #888;
+            font-size: 24px;
+            text-align: center;
+            z-index: 5;
+        }
+
+        /* Video Player */
+        .fullscreen-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none; /* Hidden by default until links are added */
+        }
+
+        /* Top Left Counter Overlay */
+        .counter-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 15px;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            pointer-events: none;
+            display: none;
+        }
+
+        /* Floating Action Buttons (Top Right) */
+        .action-btn {
+            position: absolute;
+            right: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        #nextBtn {
+            top: 20px;
+            display: none;
+        }
+
+        #editBtn {
+            top: 70px;
+        }
+
+        /* Slide-out Editor Panel */
+        .editor-panel {
+            position: absolute;
+            top: 0;
+            right: -750px; /* Hidden off-screen */
+            width: 700px;
+            height: 100%;
+            background: rgba(15, 15, 15, 0.95);
+            border-left: 1px solid #333;
+            z-index: 50;
+            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            backdrop-filter: blur(15px);
+        }
+
+        .editor-panel.open {
+            right: 0;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        .editor-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        .editor-panel textarea {
+            flex-grow: 1;
+            background: #000;
+            color: #00ffcc; /* Terminal style green/cyan text */
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: none;
+            margin-bottom: 15px;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+
+        .editor-panel textarea:focus {
+            outline: none;
+            border-color: #666;
+        }
+
+        .save-btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .save-btn:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="fullscreen-wrapper">
+    <!-- Blank State -->
+    <div id="blankState" class="blank-state">
+        <div style="font-size: 40px; margin-bottom: 10px;">🍿</div>
+        No playlist loaded.<br>Click "Edit Playlist" to add links.
+    </div>
+
+    <!-- UI Overlays -->
+    <div class="counter-overlay" id="videoCounter"></div>
+    <button id="nextBtn" class="action-btn">&rarr;</button>
+    <button id="editBtn" class="action-btn">✎</button>
+
+    <!-- The Video Player -->
+    <iframe id="videoPlayer" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    
+    <!-- Editor Slide-out Panel -->
+    <div id="editorPanel" class="editor-panel">
+        <div class="editor-header">
+            <h3>Playlist Data</h3>
+            <button id="closePanelBtn" class="close-btn">&times;</button>
+        </div>
+        <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code></p>
+        <textarea id="playlistInput" placeholder="1|https://embed14...&#10;2|https://embed14..."></textarea>
+        <button id="saveBtn" class="save-btn">Save & Reload Playlist</button>
+    </div>
+</div>
+
+<script>
+    // App State
+    let playlist = [];
+    let currentIndex = 0;
+
+    // DOM Elements
+    const player = document.getElementById('videoPlayer');
+    const counterText = document.getElementById('videoCounter');
+    const nextBtn = document.getElementById('nextBtn');
+    const editBtn = document.getElementById('editBtn');
+    const editorPanel = document.getElementById('editorPanel');
+    const closePanelBtn = document.getElementById('closePanelBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const playlistInput = document.getElementById('playlistInput');
+    const blankState = document.getElementById('blankState');
+
+    // --- Core Logic ---
+
+    // 1. Initialize from LocalStorage
+    function init() {
+        const savedRawText = localStorage.getItem('rawPlaylistText');
+        if (savedRawText && savedRawText.trim() !== '') {
+            playlistInput.value = savedRawText;
+            parseAndLoadPlaylist(savedRawText, true);
+        } else {
+            updateUI(); // Renders the blank state
+        }
+    }
+
+    // 2. Parse Text into Array of Objects
+    function parseAndLoadPlaylist(rawText, isInit = false) {
+        const lines = rawText.split('\n');
+        const parsedList = [];
+
+        lines.forEach(line => {
+            if (!line.trim()) return; // Skip empty lines
+            
+            const parts = line.split('|');
+            // Ensure there is an episode number and a URL
+            if (parts.length >= 2) {
+                // In case the URL itself has a pipe character, join the rest back
+                const epNum = parts[0].trim();
+                const url = parts.slice(1).join('|').trim();
+                parsedList.push({ ep: epNum, url: url });
+            }
+        });
+
+        playlist = parsedList;
+        
+        // Reset to first video if explicitly requested (like when hitting Save)
+        // If initializing, you might want to load saved index later, but for now we reset to 0
+        currentIndex = 0; 
+
+        // Save to LocalStorage
+        localStorage.setItem('rawPlaylistText', rawText);
+
+        updateUI();
+    }
+
+    // 3. Update DOM based on App State
+    function updateUI() {
+        if (playlist.length === 0) {
+            // Show blank state
+            player.style.display = 'none';
+            counterText.style.display = 'none';
+            nextBtn.style.display = 'none';
+            blankState.style.display = 'block';
+            player.src = "";
+            return;
+        }
+
+        // Hide blank state, show player
+        blankState.style.display = 'none';
+        player.style.display = 'block';
+        counterText.style.display = 'block';
+
+        // Load current video
+        const currentItem = playlist[currentIndex];
+        player.src = currentItem.url;
+        
+        // Update Counter Text to use the actual Episode number
+        counterText.innerText = `Ep ${currentItem.ep} • (${currentIndex + 1} / ${playlist.length})`;
+        
+        // Handle Next Button Visibility
+        if (currentIndex >= playlist.length - 1) {
+            nextBtn.style.display = 'none'; // Hide if on last video
+        } else {
+            nextBtn.style.display = 'block'; // Show otherwise
+        }
+    }
+
+    // --- Event Listeners ---
+
+    // Next Video Logic
+    nextBtn.addEventListener('click', () => {
+        if (currentIndex < playlist.length - 1) {
+            currentIndex++;
+            updateUI();
+        }
+    });
+
+    // Open Editor Panel
+    editBtn.addEventListener('click', () => {
+        editorPanel.classList.add('open');
+    });
+
+    // Close Editor Panel
+    closePanelBtn.addEventListener('click', () => {
+        editorPanel.classList.remove('open');
+    });
+
+    // Save and Reload
+    saveBtn.addEventListener('click', () => {
+        const rawText = playlistInput.value;
+        parseAndLoadPlaylist(rawText, true);
+        editorPanel.classList.remove('open'); // Close panel on save
+    });
+
+    // Start App
+    init();
+
+</script>
+</body>
+</html>

@@ -80,7 +80,10 @@
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            width: auto;
+            min-width: 45px;
         }
 
         .action-btn:hover {
@@ -88,25 +91,26 @@
         }
 
         #nextBtn {
-            top: 20px;
+            top: 70px;
             display: none;
         }
 
         #editBtn {
-            top: 70px;
+            top: 120px;
         }
 
-        /* Slide-out Editor Panel */
+        #playlistsBtn {
+            top: 170px;
+            font-size: 18px; /* Slightly larger icon */
+        }
+
+        /* Slide-out Panels */
         .editor-panel {
             position: absolute;
             top: 0;
-            right: -750px; /* Hidden off-screen */
-            width: 700px;
             height: 100%;
             background: rgba(15, 15, 15, 0.95);
-            border-left: 1px solid #333;
             z-index: 50;
-            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             display: flex;
             flex-direction: column;
             padding: 20px;
@@ -114,7 +118,27 @@
             backdrop-filter: blur(15px);
         }
 
-        .editor-panel.open {
+        /* Right Panel (Editor) */
+        .editor-panel.right-panel {
+            right: -750px; /* Hidden off-screen */
+            width: 700px;
+            border-left: 1px solid #333;
+            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .editor-panel.right-panel.open {
+            right: 0;
+        }
+
+        /* Playlists Panel (Right) */
+        .editor-panel.playlists-panel {
+            right: -400px; /* Hidden off-screen */
+            width: 400px;
+            border-left: 1px solid #333;
+            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .editor-panel.playlists-panel.open {
             right: 0;
         }
 
@@ -142,6 +166,24 @@
 
         .close-btn:hover {
             color: white;
+        }
+
+        .name-input {
+            background: #000;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .name-input:focus {
+            outline: none;
+            border-color: #666;
         }
 
         .editor-panel textarea {
@@ -175,15 +217,80 @@
             border-radius: 6px;
             cursor: pointer;
             transition: background 0.2s;
+            flex: 1;
         }
 
         .save-btn:hover {
             background: #e0e0e0;
         }
+
+        .save-btn.primary {
+            background: #00ffcc;
+            color: #000;
+        }
+        
+        .save-btn.primary:hover {
+            background: #00e6b8;
+        }
+
+        /* Playlists List Styles */
+        .playlists-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        .playlist-item {
+            padding: 15px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .playlist-item:hover {
+            background: #2a2a2a;
+        }
+
+        .playlist-item.active {
+            border-color: #00ffcc;
+            background: #11221f;
+        }
+
+        .playlist-item-title {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 10px;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .delete-btn:hover {
+            color: #ff0000;
+            background: rgba(255, 68, 68, 0.1);
+        }
     </style>
 </head>
 <body>
-
 
 <div class="fullscreen-wrapper">
     <!-- Blank State -->
@@ -194,27 +301,46 @@
 
     <!-- UI Overlays -->
     <div class="counter-overlay" id="videoCounter"></div>
-    <button id="nextBtn" class="action-btn">&rarr;</button>
-    <button id="editBtn" class="action-btn">✎</button>
+    <button id="nextBtn" class="action-btn" title="Next Video (Ctrl+Alt+X)">&rarr;</button>
+    <button id="editBtn" class="action-btn" title="Edit Playlist">✎</button>
+    <button id="playlistsBtn" class="action-btn" title="My Playlists">☰</button>
 
     <!-- The Video Player -->
     <iframe id="videoPlayer" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
     
-    <!-- Editor Slide-out Panel -->
-    <div id="editorPanel" class="editor-panel">
+    <!-- Playlists Slide-out Panel (Right) -->
+    <div id="playlistsPanel" class="editor-panel playlists-panel">
+        <div class="editor-header">
+            <h3>My Playlists</h3>
+            <button id="closePlaylistsBtn" class="close-btn">&times;</button>
+        </div>
+        <div id="playlistsContainer" class="playlists-list">
+            <!-- Playlists dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Editor Slide-out Panel (Right) -->
+    <div id="editorPanel" class="editor-panel right-panel">
         <div class="editor-header">
             <h3>Playlist Data</h3>
             <button id="closePanelBtn" class="close-btn">&times;</button>
         </div>
+        <input type="text" id="playlistNameInput" class="name-input" placeholder="Playlist Name">
         <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code></p>
         <textarea id="playlistInput" placeholder="1|https://embed14...&#10;2|https://embed14..."></textarea>
-        <button id="saveBtn" class="save-btn">Save & Reload Playlist</button>
+        <div style="display: flex; gap: 10px;">
+            <button id="saveBtn" class="save-btn">Save Current</button>
+            <button id="saveNewBtn" class="save-btn primary">Save as New</button>
+        </div>
     </div>
 </div>
 
 <script>
     // App State
-    let playlist = [];
+    let playlists = [];
+    let currentPlaylistId = null;
+    let activePlaylist = null;
+    let playlist = []; // parsed active playlist array
     let currentIndex = 0;
 
     // DOM Elements
@@ -222,37 +348,102 @@
     const counterText = document.getElementById('videoCounter');
     const nextBtn = document.getElementById('nextBtn');
     const editBtn = document.getElementById('editBtn');
+    const playlistsBtn = document.getElementById('playlistsBtn');
+    
     const editorPanel = document.getElementById('editorPanel');
+    const playlistsPanel = document.getElementById('playlistsPanel');
+    
     const closePanelBtn = document.getElementById('closePanelBtn');
+    const closePlaylistsBtn = document.getElementById('closePlaylistsBtn');
+    
     const saveBtn = document.getElementById('saveBtn');
+    const saveNewBtn = document.getElementById('saveNewBtn');
+    
     const playlistInput = document.getElementById('playlistInput');
+    const playlistNameInput = document.getElementById('playlistNameInput');
+    const playlistsContainer = document.getElementById('playlistsContainer');
     const blankState = document.getElementById('blankState');
 
     // --- Core Logic ---
 
     // 1. Initialize from LocalStorage
     function init() {
-        const savedRawText = localStorage.getItem('rawPlaylistText');
-        if (savedRawText && savedRawText.trim() !== '') {
-            playlistInput.value = savedRawText;
-            parseAndLoadPlaylist(savedRawText, true);
+        // Migrate old data if necessary or load existing playlists
+        const savedPlaylists = localStorage.getItem('playlists');
+        if (savedPlaylists) {
+            playlists = JSON.parse(savedPlaylists);
+            currentPlaylistId = localStorage.getItem('currentPlaylistId');
+        } else {
+            const oldRawText = localStorage.getItem('rawPlaylistText');
+            if (oldRawText && oldRawText.trim() !== '') {
+                const defaultId = Date.now().toString();
+                playlists.push({
+                    id: defaultId,
+                    name: 'Default Playlist',
+                    rawText: oldRawText,
+                    currentIndex: 0
+                });
+                currentPlaylistId = defaultId;
+                savePlaylistsToStorage();
+            }
+        }
+
+        if (playlists.length > 0 && currentPlaylistId) {
+            loadPlaylistData(currentPlaylistId, false);
         } else {
             updateUI(); // Renders the blank state
+        }
+        renderPlaylistsList();
+    }
+
+    function savePlaylistsToStorage() {
+        localStorage.setItem('playlists', JSON.stringify(playlists));
+        if (currentPlaylistId) {
+            localStorage.setItem('currentPlaylistId', currentPlaylistId);
+        } else {
+            localStorage.removeItem('currentPlaylistId');
+        }
+    }
+
+    function loadPlaylistData(playlistId, forceReload = true) {
+        currentPlaylistId = playlistId;
+        activePlaylist = playlists.find(p => p.id === playlistId);
+        
+        if (activePlaylist) {
+            playlistInput.value = activePlaylist.rawText;
+            playlistNameInput.value = activePlaylist.name;
+            
+            parseAndLoadPlaylist(activePlaylist.rawText);
+            currentIndex = activePlaylist.currentIndex || 0;
+            
+            if (currentIndex >= playlist.length) currentIndex = Math.max(0, playlist.length - 1);
+            activePlaylist.currentIndex = currentIndex; // Ensure valid
+            savePlaylistsToStorage();
+            
+            if (forceReload || !player.src) {
+                updateUI(true);
+            } else {
+                updateUI(false); 
+            }
+        } else {
+            playlistInput.value = '';
+            playlistNameInput.value = '';
+            playlist = [];
+            currentIndex = 0;
+            updateUI(true);
         }
     }
 
     // 2. Parse Text into Array of Objects
-    function parseAndLoadPlaylist(rawText, isInit = false) {
+    function parseAndLoadPlaylist(rawText) {
         const lines = rawText.split('\n');
         const parsedList = [];
 
         lines.forEach(line => {
-            if (!line.trim()) return; // Skip empty lines
+            if (!line.trim()) return; 
             
             const parts = line.split('|');
-            // Ensure there is an episode number and a URL
             if (parts.length >= 2) {
-                // In case the URL itself has a pipe character, join the rest back
                 const epNum = parts[0].trim();
                 const url = parts.slice(1).join('|').trim();
                 parsedList.push({ ep: epNum, url: url });
@@ -260,19 +451,10 @@
         });
 
         playlist = parsedList;
-        
-        // Reset to first video if explicitly requested (like when hitting Save)
-        // If initializing, you might want to load saved index later, but for now we reset to 0
-        currentIndex = 0; 
-
-        // Save to LocalStorage
-        localStorage.setItem('rawPlaylistText', rawText);
-
-        updateUI();
     }
 
     // 3. Update DOM based on App State
-    function updateUI() {
+    function updateUI(reloadVideo = true) {
         if (playlist.length === 0) {
             // Show blank state
             player.style.display = 'none';
@@ -290,9 +472,12 @@
 
         // Load current video
         const currentItem = playlist[currentIndex];
-        player.src = currentItem.url;
         
-        // Update Counter Text to use the actual Episode number
+        if (reloadVideo) {
+            player.src = currentItem.url;
+        }
+        
+        // Update Counter Text
         counterText.innerText = `Ep ${currentItem.ep} • (${currentIndex + 1} / ${playlist.length})`;
         
         // Handle Next Button Visibility
@@ -303,31 +488,157 @@
         }
     }
 
+    function renderPlaylistsList() {
+        playlistsContainer.innerHTML = '';
+        
+        if (playlists.length === 0) {
+            playlistsContainer.innerHTML = '<p style="color: #888;">No playlists saved.</p>';
+            return;
+        }
+        
+        playlists.forEach(p => {
+            const item = document.createElement('div');
+            item.className = `playlist-item ${p.id === currentPlaylistId ? 'active' : ''}`;
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'playlist-item-title';
+            titleSpan.innerText = p.name || 'Untitled Playlist';
+            
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = '&#128465;'; // Trash can icon
+            delBtn.className = 'delete-btn';
+            delBtn.title = 'Delete Playlist';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Are you sure you want to delete this playlist?')) {
+                    playlists = playlists.filter(pl => pl.id !== p.id);
+                    if (currentPlaylistId === p.id) {
+                        currentPlaylistId = playlists.length > 0 ? playlists[0].id : null;
+                        if (currentPlaylistId) {
+                            loadPlaylistData(currentPlaylistId, true);
+                        } else {
+                            activePlaylist = null;
+                            playlist = [];
+                            updateUI(true);
+                        }
+                    }
+                    savePlaylistsToStorage();
+                    renderPlaylistsList();
+                }
+            };
+            
+            item.appendChild(titleSpan);
+            item.appendChild(delBtn);
+            
+            item.onclick = () => {
+                if (p.id !== currentPlaylistId) {
+                    loadPlaylistData(p.id, true);
+                    renderPlaylistsList();
+                }
+                playlistsPanel.classList.remove('open');
+            };
+            
+            playlistsContainer.appendChild(item);
+        });
+    }
+
+    function createNewPlaylist(name, rawText) {
+        const newId = Date.now().toString();
+        const newPlaylist = {
+            id: newId,
+            name: name,
+            rawText: rawText,
+            currentIndex: 0
+        };
+        playlists.push(newPlaylist);
+        currentPlaylistId = newId;
+        activePlaylist = newPlaylist;
+        parseAndLoadPlaylist(rawText);
+        currentIndex = 0;
+    }
+
     // --- Event Listeners ---
 
-    // Next Video Logic
-    nextBtn.addEventListener('click', () => {
+    function playNextVideo() {
         if (currentIndex < playlist.length - 1) {
             currentIndex++;
-            updateUI();
+            if (activePlaylist) {
+                activePlaylist.currentIndex = currentIndex;
+                savePlaylistsToStorage();
+            }
+            updateUI(true);
+            window.focus(); // Regain focus to main window to keep shortcuts working
         }
-    });
+    }
+
+    // Next Video Logic
+    nextBtn.addEventListener('click', playNextVideo);
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+        // e.code is more robust for modifier + key combinations
+        if (e.ctrlKey && e.altKey && e.code === 'KeyX') {
+            e.preventDefault();
+            playNextVideo();
+        }
+    }, true); // Use capture phase to intercept early
 
     // Open Editor Panel
     editBtn.addEventListener('click', () => {
         editorPanel.classList.add('open');
+        playlistsPanel.classList.remove('open'); // Close other panel
     });
 
-    // Close Editor Panel
+    // Open Playlists Panel
+    playlistsBtn.addEventListener('click', () => {
+        renderPlaylistsList();
+        playlistsPanel.classList.add('open');
+        editorPanel.classList.remove('open'); // Close other panel
+    });
+
+    // Close Panels
     closePanelBtn.addEventListener('click', () => {
         editorPanel.classList.remove('open');
     });
 
-    // Save and Reload
+    closePlaylistsBtn.addEventListener('click', () => {
+        playlistsPanel.classList.remove('open');
+    });
+
+    // Save Current
     saveBtn.addEventListener('click', () => {
         const rawText = playlistInput.value;
-        parseAndLoadPlaylist(rawText, true);
-        editorPanel.classList.remove('open'); // Close panel on save
+        const name = playlistNameInput.value.trim() || 'Untitled Playlist';
+        
+        if (activePlaylist) {
+            activePlaylist.rawText = rawText;
+            activePlaylist.name = name;
+            parseAndLoadPlaylist(rawText);
+            
+            if (currentIndex >= playlist.length) {
+                currentIndex = Math.max(0, playlist.length - 1);
+            }
+            activePlaylist.currentIndex = currentIndex;
+        } else {
+            createNewPlaylist(name, rawText);
+        }
+        
+        savePlaylistsToStorage();
+        updateUI(true);
+        renderPlaylistsList();
+        editorPanel.classList.remove('open');
+    });
+
+    // Save as New
+    saveNewBtn.addEventListener('click', () => {
+        const rawText = playlistInput.value;
+        const name = playlistNameInput.value.trim() || 'New Playlist';
+        createNewPlaylist(name, rawText);
+        
+        savePlaylistsToStorage();
+        updateUI(true);
+        renderPlaylistsList();
+        editorPanel.classList.remove('open');
     });
 
     // Start App

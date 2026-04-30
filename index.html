@@ -580,6 +580,13 @@
         if (e.ctrlKey && e.altKey && e.code === 'KeyX') {
             e.preventDefault();
             playNextVideo();
+        } else if (e.key === 'Escape') {
+            if (editorPanel.classList.contains('open')) {
+                editorPanel.classList.remove('open');
+            }
+            if (playlistsPanel.classList.contains('open')) {
+                playlistsPanel.classList.remove('open');
+            }
         }
     }, true); // Use capture phase to intercept early
 

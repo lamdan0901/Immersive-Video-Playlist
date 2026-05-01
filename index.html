@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Immersive Video Playlist</title>
 	<link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         /* Base Reset */
         body, html {
@@ -44,6 +45,17 @@
             height: 100%;
             border: none;
             display: none; /* Hidden by default until links are added */
+        }
+
+        .fullscreen-wrapper video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+            background: #000;
         }
 
         /* Top Left Counter Overlay */
@@ -307,6 +319,7 @@
 
     <!-- The Video Player -->
     <iframe id="videoPlayer" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+    <video id="videoPlayerNative" controls autoplay></video>
     
     <!-- Playlists Slide-out Panel (Right) -->
     <div id="playlistsPanel" class="editor-panel playlists-panel">
@@ -326,7 +339,7 @@
             <button id="closePanelBtn" class="close-btn">&times;</button>
         </div>
         <input type="text" id="playlistNameInput" class="name-input" placeholder="Playlist Name">
-        <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code></p>
+        <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code> (embed links or .m3u8 streams)</p>
         <textarea id="playlistInput" placeholder="1|https://embed14...&#10;2|https://embed14..."></textarea>
         <div style="display: flex; gap: 10px;">
             <button id="saveBtn" class="save-btn">Save Current</button>
@@ -342,9 +355,11 @@
     let activePlaylist = null;
     let playlist = []; // parsed active playlist array
     let currentIndex = 0;
+    let hlsInstance = null;
 
     // DOM Elements
     const player = document.getElementById('videoPlayer');
+    const playerNative = document.getElementById('videoPlayerNative');
     const counterText = document.getElementById('videoCounter');
     const nextBtn = document.getElementById('nextBtn');
     const editBtn = document.getElementById('editBtn');
@@ -365,6 +380,10 @@
     const blankState = document.getElementById('blankState');
 
     // --- Core Logic ---
+
+    function isM3u8Url(url) {
+        return /\.m3u8(\?|$)/i.test(url);
+    }
 
     // 1. Initialize from LocalStorage
     function init() {
@@ -458,23 +477,45 @@
         if (playlist.length === 0) {
             // Show blank state
             player.style.display = 'none';
+            playerNative.style.display = 'none';
+            if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
             counterText.style.display = 'none';
             nextBtn.style.display = 'none';
             blankState.style.display = 'block';
             player.src = "";
+            playerNative.src = "";
             return;
         }
 
-        // Hide blank state, show player
+        // Hide blank state
         blankState.style.display = 'none';
-        player.style.display = 'block';
         counterText.style.display = 'block';
 
         // Load current video
         const currentItem = playlist[currentIndex];
-        
+
         if (reloadVideo) {
-            player.src = currentItem.url;
+            if (isM3u8Url(currentItem.url)) {
+                // M3U8: show native video player, hide iframe
+                player.style.display = 'none';
+                playerNative.style.display = 'block';
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(currentItem.url);
+                    hlsInstance.attachMedia(playerNative);
+                } else if (playerNative.canPlayType('application/vnd.apple.mpegurl')) {
+                    playerNative.src = currentItem.url;
+                }
+            } else {
+                // Embed: show iframe, hide native video player
+                playerNative.style.display = 'none';
+                playerNative.pause();
+                playerNative.src = "";
+                if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+                player.style.display = 'block';
+                player.src = currentItem.url;
+            }
         }
         
         // Update Counter Text

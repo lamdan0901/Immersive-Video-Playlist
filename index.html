@@ -431,6 +431,7 @@
         if (activePlaylist) {
             playlistInput.value = activePlaylist.rawText;
             playlistNameInput.value = activePlaylist.name;
+            document.title = activePlaylist.name + ' — Immersive Video Playlist';
             
             parseAndLoadPlaylist(activePlaylist.rawText);
             currentIndex = activePlaylist.currentIndex || 0;
@@ -449,6 +450,7 @@
             playlistNameInput.value = '';
             playlist = [];
             currentIndex = 0;
+            document.title = 'Immersive Video Playlist';
             updateUI(true);
         }
     }
@@ -560,6 +562,7 @@
                         } else {
                             activePlaylist = null;
                             playlist = [];
+                            document.title = 'Immersive Video Playlist';
                             updateUI(true);
                         }
                     }
@@ -594,6 +597,7 @@
         playlists.push(newPlaylist);
         currentPlaylistId = newId;
         activePlaylist = newPlaylist;
+        document.title = name + ' — Immersive Video Playlist';
         parseAndLoadPlaylist(rawText);
         currentIndex = 0;
     }
@@ -628,6 +632,24 @@
             if (playlistsPanel.classList.contains('open')) {
                 playlistsPanel.classList.remove('open');
             }
+        } else if (playerNative.style.display !== 'none') {
+            const tag = document.activeElement?.tagName;
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+                if (e.code === 'KeyL') {
+                    e.preventDefault();
+                    playerNative.currentTime += 10;
+                } else if (e.code === 'KeyJ') {
+                    e.preventDefault();
+                    playerNative.currentTime -= 10;
+                } else if (e.code === 'KeyK') {
+                    e.preventDefault();
+                    if (playerNative.paused) {
+                        playerNative.play();
+                    } else {
+                        playerNative.pause();
+                    }
+                }
+            }
         }
     }, true); // Use capture phase to intercept early
 
@@ -661,6 +683,7 @@
         if (activePlaylist) {
             activePlaylist.rawText = rawText;
             activePlaylist.name = name;
+            document.title = name + ' — Immersive Video Playlist';
             parseAndLoadPlaylist(rawText);
             
             if (currentIndex >= playlist.length) {

@@ -300,6 +300,124 @@
             color: #ff0000;
             background: rgba(255, 68, 68, 0.1);
         }
+
+        /* M3U8 Settings */
+        #m3u8Settings {
+            display: none;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .settings-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-row input[type="checkbox"] {
+            accent-color: #00ffcc;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .settings-row label {
+            color: #ccc;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .settings-row input[type="text"] {
+            background: #000;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 13px;
+            font-family: monospace;
+            width: 70px;
+            box-sizing: border-box;
+        }
+
+        .settings-row input[type="text"]:focus {
+            outline: none;
+            border-color: #666;
+        }
+
+        .settings-row input[type="text"]:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .settings-hint {
+            color: #666;
+            font-size: 11px;
+            margin: 0;
+        }
+
+        /* Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+            gap: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 4px;
+        }
+
+        .video-grid:empty {
+            display: none;
+        }
+
+        .video-grid-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #aaa;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 8px 4px;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            user-select: none;
+        }
+
+        .video-grid-item:hover {
+            background: #2a2a2a;
+        }
+
+        .video-grid-item.played {
+            background: #1a2e2a;
+            border-color: #2a6b5f;
+            color: #66ccbb;
+        }
+
+        .video-grid-item.played:hover {
+            background: #243d37;
+        }
+
+        .video-grid-item.current {
+            background: #00ffcc;
+            border-color: #00ffcc;
+            color: #000;
+        }
+
+        .video-grid-item.current:hover {
+            background: #00e6b8;
+        }
     </style>
 </head>
 <body>
@@ -339,6 +457,16 @@
             <button id="closePanelBtn" class="close-btn">&times;</button>
         </div>
         <input type="text" id="playlistNameInput" class="name-input" placeholder="Playlist Name">
+        <div id="m3u8Settings">
+            <div class="settings-row">
+                <input type="checkbox" id="autoSkipCheck">
+                <label for="autoSkipCheck">Auto skip ahead:</label>
+                <input type="text" id="autoSkipInput" placeholder="00:30" maxlength="5" disabled>
+                <span class="settings-hint">(mm:ss)</span>
+            </div>
+
+        </div>
+        <div id="videoGrid" class="video-grid"></div>
         <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code> (embed links or .m3u8 streams)</p>
         <textarea id="playlistInput" placeholder="1|https://embed14...&#10;2|https://embed14..."></textarea>
         <div style="display: flex; gap: 10px;">
@@ -356,6 +484,8 @@
     let playlist = []; // parsed active playlist array
     let currentIndex = 0;
     let hlsInstance = null;
+    let hasAutoSkipped = false;
+    let lastResumeSaveTime = 0;
 
     // DOM Elements
     const player = document.getElementById('videoPlayer');
@@ -379,10 +509,46 @@
     const playlistsContainer = document.getElementById('playlistsContainer');
     const blankState = document.getElementById('blankState');
 
+    const m3u8Settings = document.getElementById('m3u8Settings');
+    const autoSkipCheck = document.getElementById('autoSkipCheck');
+    const autoSkipInput = document.getElementById('autoSkipInput');
+    const videoGrid = document.getElementById('videoGrid');
+
     // --- Core Logic ---
 
     function isM3u8Url(url) {
         return /\.m3u8(\?|$)/i.test(url);
+    }
+
+    function hasM3u8Urls(rawText) {
+        return rawText.split('\n').some(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return false;
+            const parts = trimmed.split('|');
+            if (parts.length >= 2) {
+                const url = parts.slice(1).join('|').trim();
+                return isM3u8Url(url);
+            }
+            return false;
+        });
+    }
+
+    function parseMmSs(str) {
+        if (!str || typeof str !== 'string') return 0;
+        const parts = str.split(':');
+        if (parts.length !== 2) return 0;
+        const mins = parseInt(parts[0], 10);
+        const secs = parseInt(parts[1], 10);
+        if (isNaN(mins) || isNaN(secs) || mins < 0 || secs < 0 || secs >= 60) return 0;
+        return mins * 60 + secs;
+    }
+
+    function toggleM3u8SettingsVisibility() {
+        if (hasM3u8Urls(playlistInput.value)) {
+            m3u8Settings.style.display = 'block';
+        } else {
+            m3u8Settings.style.display = 'none';
+        }
     }
 
     // 1. Initialize from LocalStorage
@@ -429,15 +595,32 @@
         activePlaylist = playlists.find(p => p.id === playlistId);
         
         if (activePlaylist) {
+            activePlaylist.autoSkipEnabled = activePlaylist.autoSkipEnabled ?? false;
+            activePlaylist.autoSkipTime = activePlaylist.autoSkipTime ?? "00:00";
+            activePlaylist.m3u8LastEp = activePlaylist.m3u8LastEp ?? null;
+            activePlaylist.m3u8LastTime = activePlaylist.m3u8LastTime ?? null;
+            activePlaylist.playedIndices = activePlaylist.playedIndices ?? [];
+
             playlistInput.value = activePlaylist.rawText;
             playlistNameInput.value = activePlaylist.name;
             document.title = activePlaylist.name + ' — Immersive Video Playlist';
+
+            autoSkipCheck.checked = activePlaylist.autoSkipEnabled;
+            autoSkipInput.value = activePlaylist.autoSkipTime;
+            autoSkipInput.disabled = !activePlaylist.autoSkipEnabled;
+            toggleM3u8SettingsVisibility();
             
             parseAndLoadPlaylist(activePlaylist.rawText);
-            currentIndex = activePlaylist.currentIndex || 0;
+            hasAutoSkipped = false;
+
+            if (activePlaylist.m3u8LastEp != null) {
+                currentIndex = activePlaylist.m3u8LastEp;
+            } else {
+                currentIndex = activePlaylist.currentIndex || 0;
+            }
             
             if (currentIndex >= playlist.length) currentIndex = Math.max(0, playlist.length - 1);
-            activePlaylist.currentIndex = currentIndex; // Ensure valid
+            activePlaylist.currentIndex = currentIndex;
             savePlaylistsToStorage();
             
             if (forceReload || !player.src) {
@@ -445,13 +628,16 @@
             } else {
                 updateUI(false); 
             }
+            renderVideoGrid();
         } else {
             playlistInput.value = '';
             playlistNameInput.value = '';
             playlist = [];
             currentIndex = 0;
             document.title = 'Immersive Video Playlist';
+            m3u8Settings.style.display = 'none';
             updateUI(true);
+            renderVideoGrid();
         }
     }
 
@@ -509,6 +695,22 @@
                 } else if (playerNative.canPlayType('application/vnd.apple.mpegurl')) {
                     playerNative.src = currentItem.url;
                 }
+
+                const resumeTime = (activePlaylist && activePlaylist.m3u8LastTime > 0) ? activePlaylist.m3u8LastTime : 0;
+                const skipSeconds = parseMmSs(activePlaylist ? activePlaylist.autoSkipTime : '');
+
+                if (resumeTime > 0) {
+                    playerNative.addEventListener('loadedmetadata', function onMeta() {
+                        playerNative.currentTime = resumeTime;
+                        playerNative.removeEventListener('loadedmetadata', onMeta);
+                    });
+                } else if (activePlaylist && activePlaylist.autoSkipEnabled && skipSeconds > 0 && !hasAutoSkipped) {
+                    playerNative.addEventListener('loadedmetadata', function onMeta() {
+                        playerNative.currentTime = skipSeconds;
+                        playerNative.removeEventListener('loadedmetadata', onMeta);
+                    });
+                }
+                hasAutoSkipped = true;
             } else {
                 // Embed: show iframe, hide native video player
                 playerNative.style.display = 'none';
@@ -586,18 +788,68 @@
         });
     }
 
+    function renderVideoGrid() {
+        videoGrid.innerHTML = '';
+
+        const lines = playlistInput.value.split('\n');
+        const entries = [];
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            const parts = line.split('|');
+            if (parts.length >= 2) {
+                entries.push({ ep: parts[0].trim() });
+            }
+        });
+
+        if (entries.length === 0) return;
+
+        const playedSet = activePlaylist ? new Set(activePlaylist.playedIndices || []) : new Set();
+
+        entries.forEach((entry, index) => {
+            const item = document.createElement('div');
+            item.className = 'video-grid-item';
+            if (index === currentIndex) item.classList.add('current');
+            else if (playedSet.has(index)) item.classList.add('played');
+            item.textContent = entry.ep;
+            item.addEventListener('click', () => {
+                if (activePlaylist && currentIndex !== index) {
+                    if (!activePlaylist.playedIndices.includes(currentIndex)) {
+                        activePlaylist.playedIndices.push(currentIndex);
+                    }
+                }
+                currentIndex = index;
+                if (activePlaylist) {
+                    activePlaylist.currentIndex = currentIndex;
+                    activePlaylist.m3u8LastEp = currentIndex;
+                    activePlaylist.m3u8LastTime = 0;
+                    savePlaylistsToStorage();
+                }
+                hasAutoSkipped = false;
+                updateUI(true);
+                renderVideoGrid();
+            });
+            videoGrid.appendChild(item);
+        });
+    }
+
     function createNewPlaylist(name, rawText) {
         const newId = Date.now().toString();
         const newPlaylist = {
             id: newId,
             name: name,
             rawText: rawText,
-            currentIndex: 0
+            currentIndex: 0,
+            autoSkipEnabled: false,
+            autoSkipTime: "00:00",
+            m3u8LastEp: null,
+            m3u8LastTime: null,
+            playedIndices: []
         };
         playlists.push(newPlaylist);
         currentPlaylistId = newId;
         activePlaylist = newPlaylist;
         document.title = name + ' — Immersive Video Playlist';
+        hasAutoSkipped = false;
         parseAndLoadPlaylist(rawText);
         currentIndex = 0;
     }
@@ -606,12 +858,19 @@
 
     function playNextVideo() {
         if (currentIndex < playlist.length - 1) {
+            if (activePlaylist && !activePlaylist.playedIndices.includes(currentIndex)) {
+                activePlaylist.playedIndices.push(currentIndex);
+            }
             currentIndex++;
             if (activePlaylist) {
                 activePlaylist.currentIndex = currentIndex;
+                activePlaylist.m3u8LastEp = currentIndex;
+                activePlaylist.m3u8LastTime = 0;
                 savePlaylistsToStorage();
             }
+            hasAutoSkipped = false;
             updateUI(true);
+            renderVideoGrid();
             window.focus(); // Regain focus to main window to keep shortcuts working
         }
     }
@@ -681,8 +940,18 @@
         const name = playlistNameInput.value.trim() || 'Untitled Playlist';
         
         if (activePlaylist) {
+            const textChanged = activePlaylist.rawText !== rawText;
             activePlaylist.rawText = rawText;
             activePlaylist.name = name;
+            activePlaylist.autoSkipEnabled = autoSkipCheck.checked;
+            activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
+
+            if (textChanged) {
+                activePlaylist.m3u8LastEp = null;
+                activePlaylist.m3u8LastTime = null;
+                activePlaylist.playedIndices = [];
+            }
+
             document.title = name + ' — Immersive Video Playlist';
             parseAndLoadPlaylist(rawText);
             
@@ -690,6 +959,7 @@
                 currentIndex = Math.max(0, playlist.length - 1);
             }
             activePlaylist.currentIndex = currentIndex;
+            hasAutoSkipped = false;
         } else {
             createNewPlaylist(name, rawText);
         }
@@ -697,6 +967,7 @@
         savePlaylistsToStorage();
         updateUI(true);
         renderPlaylistsList();
+        renderVideoGrid();
         editorPanel.classList.remove('open');
     });
 
@@ -705,11 +976,45 @@
         const rawText = playlistInput.value;
         const name = playlistNameInput.value.trim() || 'New Playlist';
         createNewPlaylist(name, rawText);
+
+        activePlaylist.autoSkipEnabled = autoSkipCheck.checked;
+        activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
         
         savePlaylistsToStorage();
         updateUI(true);
         renderPlaylistsList();
+        renderVideoGrid();
         editorPanel.classList.remove('open');
+    });
+
+    // Auto-skip checkbox toggle
+    autoSkipCheck.addEventListener('change', () => {
+        autoSkipInput.disabled = !autoSkipCheck.checked;
+    });
+
+    // M3U8 Settings visibility on input change
+    playlistInput.addEventListener('input', () => {
+        toggleM3u8SettingsVisibility();
+        renderVideoGrid();
+    });
+
+    // Periodic time save for m3u8 resume
+    playerNative.addEventListener('timeupdate', () => {
+        if (!activePlaylist) return;
+        const now = Date.now();
+        if (now - lastResumeSaveTime > 5000) {
+            lastResumeSaveTime = now;
+            activePlaylist.m3u8LastTime = playerNative.currentTime;
+            savePlaylistsToStorage();
+        }
+    });
+
+    // Clear resume time when video ends
+    playerNative.addEventListener('ended', () => {
+        if (activePlaylist) {
+            activePlaylist.m3u8LastTime = 0;
+            savePlaylistsToStorage();
+        }
     });
 
     // Start App

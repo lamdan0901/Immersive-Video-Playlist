@@ -116,6 +116,28 @@
             font-size: 18px; /* Slightly larger icon */
         }
 
+        /* Hover-to-reveal zone for action buttons */
+        .action-hover-zone {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 10;
+            box-sizing: border-box;
+            width: 200px;
+            height: 260px;
+            padding: 50px;
+        }
+
+        .action-hover-zone .action-btn {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .action-hover-zone:hover .action-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
         /* Slide-out Panels */
         .editor-panel {
             position: absolute;
@@ -431,9 +453,11 @@
 
     <!-- UI Overlays -->
     <div class="counter-overlay" id="videoCounter"></div>
-    <button id="nextBtn" class="action-btn" title="Next Video (Ctrl+Alt+X)">&rarr;</button>
-    <button id="editBtn" class="action-btn" title="Edit Playlist">✎</button>
-    <button id="playlistsBtn" class="action-btn" title="My Playlists">☰</button>
+    <div id="actionHoverZone" class="action-hover-zone">
+        <button id="nextBtn" class="action-btn" title="Next Video (Ctrl+Alt+X)">&rarr;</button>
+        <button id="editBtn" class="action-btn" title="Edit Playlist">✎</button>
+        <button id="playlistsBtn" class="action-btn" title="My Playlists">☰</button>
+    </div>
 
     <!-- The Video Player -->
     <iframe id="videoPlayer" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
@@ -723,7 +747,7 @@
         }
         
         // Update Counter Text
-        counterText.innerText = `Ep ${currentItem.ep} • (${currentIndex + 1} / ${playlist.length})`;
+        counterText.innerText = `${currentIndex + 1} / ${playlist.length}`;
         
         // Handle Next Button Visibility
         if (currentIndex >= playlist.length - 1) {

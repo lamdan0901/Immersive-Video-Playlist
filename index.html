@@ -220,6 +220,20 @@
             border-color: #666;
         }
 
+        #serverSelect {
+            cursor: pointer;
+        }
+
+        #serverSelect option {
+            background: #000;
+            color: #fff;
+        }
+
+        #fetchJsonBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .editor-panel textarea {
             flex-grow: 1;
             background: #000;
@@ -480,6 +494,13 @@
             <h3>Playlist Data</h3>
             <button id="closePanelBtn" class="close-btn">&times;</button>
         </div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="jsonUrlInput" class="name-input" placeholder="JSON API URL (e.g., https://ophim1.com/v1/api/phim/...)" style="margin-bottom: 0; flex-grow: 1;">
+            <button id="fetchJsonBtn" class="save-btn primary" style="margin-bottom: 0; flex-shrink: 0; padding: 12px 20px;">Fetch</button>
+        </div>
+        <select id="serverSelect" class="name-input" style="display: none;">
+            <option value="0">Server 1</option>
+        </select>
         <input type="text" id="playlistNameInput" class="name-input" placeholder="Playlist Name">
         <div id="m3u8Settings">
             <div class="settings-row">
@@ -538,6 +559,12 @@
     const autoSkipInput = document.getElementById('autoSkipInput');
     const videoGrid = document.getElementById('videoGrid');
 
+    const jsonUrlInput = document.getElementById('jsonUrlInput');
+    const fetchJsonBtn = document.getElementById('fetchJsonBtn');
+    const serverSelect = document.getElementById('serverSelect');
+
+    let fetchedEpisodes = null;
+
     // --- Core Logic ---
 
     function isM3u8Url(url) {
@@ -575,9 +602,81 @@
         }
     }
 
+    async function fetchJsonWithCorsFallback(url) {
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return await resp.json();
+        } catch (e) {
+            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+            const resp = await fetch(proxyUrl);
+            if (!resp.ok) throw new Error(`Proxy HTTP ${resp.status}`);
+            return await resp.json();
+        }
+    }
+
+    async function fetchAndPopulateJson(url, autoMode = false) {
+        if (!url || !url.trim()) return;
+
+        if (!autoMode) {
+            fetchJsonBtn.disabled = true;
+            fetchJsonBtn.textContent = 'Loading...';
+        }
+
+        try {
+            const data = await fetchJsonWithCorsFallback(url);
+            const item = data?.data?.item;
+            if (!item) throw new Error('Invalid API response: missing data.item');
+
+            if (item.name && !autoMode) {
+                playlistNameInput.value = item.name;
+            }
+
+            fetchedEpisodes = item.episodes || [];
+
+            serverSelect.innerHTML = '';
+            fetchedEpisodes.forEach((server, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = server.server_name || `Server ${i + 1}`;
+                serverSelect.appendChild(opt);
+            });
+
+            if (fetchedEpisodes.length > 0) {
+                const savedServer = activePlaylist?.selectedServer ?? 0;
+                const serverIndex = savedServer < fetchedEpisodes.length ? savedServer : 0;
+                serverSelect.value = serverIndex;
+                serverSelect.style.display = 'block';
+                populateFromServer(serverIndex);
+            } else {
+                serverSelect.style.display = 'none';
+            }
+        } catch (e) {
+            if (!autoMode) alert('Fetch failed: ' + e.message);
+        } finally {
+            if (!autoMode) {
+                fetchJsonBtn.disabled = false;
+                fetchJsonBtn.textContent = 'Fetch';
+            }
+        }
+    }
+
+    function populateFromServer(serverIndex) {
+        if (!fetchedEpisodes || !fetchedEpisodes[serverIndex]) return;
+
+        const serverData = fetchedEpisodes[serverIndex].server_data || [];
+        const lines = serverData.map(ep => {
+            const url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+            return `${ep.name}|${url}`;
+        });
+
+        playlistInput.value = lines.join('\n');
+        toggleM3u8SettingsVisibility();
+        renderVideoGrid();
+    }
+
     // 1. Initialize from LocalStorage
-    function init() {
-        // Migrate old data if necessary or load existing playlists
+    async function init() {
         const savedPlaylists = localStorage.getItem('playlists');
         if (savedPlaylists) {
             playlists = JSON.parse(savedPlaylists);
@@ -598,9 +697,30 @@
         }
 
         if (playlists.length > 0 && currentPlaylistId) {
+            activePlaylist = playlists.find(p => p.id === currentPlaylistId);
+            if (activePlaylist?.jsonUrl) {
+                try {
+                    const data = await fetchJsonWithCorsFallback(activePlaylist.jsonUrl);
+                    const item = data?.data?.item;
+                    if (item?.episodes) {
+                        fetchedEpisodes = item.episodes;
+                        const serverIdx = (activePlaylist.selectedServer ?? 0) < fetchedEpisodes.length
+                            ? activePlaylist.selectedServer : 0;
+                        const serverData = fetchedEpisodes[serverIdx]?.server_data || [];
+                        const lines = serverData.map(ep => {
+                            const url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+                            return `${ep.name}|${url}`;
+                        });
+                        if (lines.length > 0) {
+                            activePlaylist.rawText = lines.join('\n');
+                            savePlaylistsToStorage();
+                        }
+                    }
+                } catch (e) { /* silent fail on auto-refresh */ }
+            }
             loadPlaylistData(currentPlaylistId, false);
         } else {
-            updateUI(); // Renders the blank state
+            updateUI();
         }
         renderPlaylistsList();
     }
@@ -624,9 +744,12 @@
             activePlaylist.m3u8LastEp = activePlaylist.m3u8LastEp ?? null;
             activePlaylist.m3u8LastTime = activePlaylist.m3u8LastTime ?? null;
             activePlaylist.playedIndices = activePlaylist.playedIndices ?? [];
+            activePlaylist.jsonUrl = activePlaylist.jsonUrl ?? "";
+            activePlaylist.selectedServer = activePlaylist.selectedServer ?? 0;
 
             playlistInput.value = activePlaylist.rawText;
             playlistNameInput.value = activePlaylist.name;
+            jsonUrlInput.value = activePlaylist.jsonUrl || '';
             document.title = activePlaylist.name + ' — Immersive Video Playlist';
 
             autoSkipCheck.checked = activePlaylist.autoSkipEnabled;
@@ -867,7 +990,9 @@
             autoSkipTime: "00:00",
             m3u8LastEp: null,
             m3u8LastTime: null,
-            playedIndices: []
+            playedIndices: [],
+            jsonUrl: "",
+            selectedServer: 0
         };
         playlists.push(newPlaylist);
         currentPlaylistId = newId;
@@ -939,7 +1064,11 @@
     // Open Editor Panel
     editBtn.addEventListener('click', () => {
         editorPanel.classList.add('open');
-        playlistsPanel.classList.remove('open'); // Close other panel
+        playlistsPanel.classList.remove('open');
+
+        if (activePlaylist?.jsonUrl) {
+            fetchAndPopulateJson(activePlaylist.jsonUrl, true);
+        }
     });
 
     // Open Playlists Panel
@@ -969,6 +1098,8 @@
             activePlaylist.name = name;
             activePlaylist.autoSkipEnabled = autoSkipCheck.checked;
             activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
+            activePlaylist.jsonUrl = jsonUrlInput.value.trim();
+            activePlaylist.selectedServer = serverSelect.selectedIndex;
 
             if (textChanged) {
                 activePlaylist.m3u8LastEp = null;
@@ -1003,6 +1134,8 @@
 
         activePlaylist.autoSkipEnabled = autoSkipCheck.checked;
         activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
+        activePlaylist.jsonUrl = jsonUrlInput.value.trim();
+        activePlaylist.selectedServer = serverSelect.selectedIndex;
         
         savePlaylistsToStorage();
         updateUI(true);
@@ -1020,6 +1153,16 @@
     playlistInput.addEventListener('input', () => {
         toggleM3u8SettingsVisibility();
         renderVideoGrid();
+    });
+
+    // Fetch JSON button
+    fetchJsonBtn.addEventListener('click', () => {
+        fetchAndPopulateJson(jsonUrlInput.value.trim());
+    });
+
+    // Server selector change
+    serverSelect.addEventListener('change', () => {
+        populateFromServer(parseInt(serverSelect.value, 10));
     });
 
     // Periodic time save for m3u8 resume

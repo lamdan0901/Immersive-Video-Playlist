@@ -509,7 +509,13 @@
                 <input type="text" id="autoSkipInput" placeholder="00:30" maxlength="5" disabled>
                 <span class="settings-hint">(mm:ss)</span>
             </div>
-
+            <div id="linkTypeRow" class="settings-row">
+                <label for="linkTypeSelect">Link Type:</label>
+                <select id="linkTypeSelect" class="name-input" style="width: auto; margin-bottom: 0; padding: 4px 8px; font-size: 13px;">
+                    <option value="m3u8">M3U8 (Direct)</option>
+                    <option value="embed">Embed (Iframe)</option>
+                </select>
+            </div>
         </div>
         <div id="videoGrid" class="video-grid"></div>
         <p style="color: #888; font-size: 12px; margin-top: 0; margin-bottom: 10px;">Format: <code>Episode_Number|URL</code> (embed links or .m3u8 streams)</p>
@@ -558,6 +564,7 @@
     const autoSkipCheck = document.getElementById('autoSkipCheck');
     const autoSkipInput = document.getElementById('autoSkipInput');
     const videoGrid = document.getElementById('videoGrid');
+    const linkTypeSelect = document.getElementById('linkTypeSelect');
 
     const jsonUrlInput = document.getElementById('jsonUrlInput');
     const fetchJsonBtn = document.getElementById('fetchJsonBtn');
@@ -595,11 +602,33 @@
     }
 
     function toggleM3u8SettingsVisibility() {
-        if (hasM3u8Urls(playlistInput.value)) {
-            m3u8Settings.style.display = 'block';
-        } else {
-            m3u8Settings.style.display = 'none';
+        const hasM3u8 = hasM3u8Urls(playlistInput.value);
+        const isJson = serverSelect.style.display !== 'none';
+        
+        m3u8Settings.style.display = (hasM3u8 || isJson) ? 'block' : 'none';
+        
+        const linkTypeRow = document.getElementById('linkTypeRow');
+        if (linkTypeRow) {
+            linkTypeRow.style.display = isJson ? 'flex' : 'none';
         }
+    }
+
+    function extractItem(data, url) {
+        const isNguonC = url.includes('phim.nguonc.com');
+        const isOPhim = url.includes('ophim1.com');
+        let item = isNguonC ? data?.movie : (isOPhim ? data?.data?.item : null);
+
+        if (item && isNguonC && item.episodes) {
+            item.episodes = item.episodes.map(server => ({
+                server_name: server.server_name,
+                server_data: (server.items || []).map(ep => ({
+                    name: ep.name,
+                    link_m3u8: ep.m3u8,
+                    link_embed: ep.embed
+                }))
+            }));
+        }
+        return item;
     }
 
     async function fetchJsonWithCorsFallback(url) {
@@ -625,8 +654,8 @@
 
         try {
             const data = await fetchJsonWithCorsFallback(url);
-            const item = data?.data?.item;
-            if (!item) throw new Error('Invalid API response: missing data.item');
+            const item = extractItem(data, url);
+            if (!item) throw new Error('Invalid API response: missing expected data structure');
 
             if (item.name && !autoMode) {
                 playlistNameInput.value = item.name;
@@ -665,8 +694,14 @@
         if (!fetchedEpisodes || !fetchedEpisodes[serverIndex]) return;
 
         const serverData = fetchedEpisodes[serverIndex].server_data || [];
+        const preferEmbed = linkTypeSelect.value === 'embed';
         const lines = serverData.map(ep => {
-            const url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+            let url;
+            if (preferEmbed) {
+                url = ep.link_embed && ep.link_embed.trim() ? ep.link_embed : ep.link_m3u8;
+            } else {
+                url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+            }
             return `${ep.name}|${url}`;
         });
 
@@ -701,14 +736,20 @@
             if (activePlaylist?.jsonUrl) {
                 try {
                     const data = await fetchJsonWithCorsFallback(activePlaylist.jsonUrl);
-                    const item = data?.data?.item;
+                    const item = extractItem(data, activePlaylist.jsonUrl);
                     if (item?.episodes) {
                         fetchedEpisodes = item.episodes;
                         const serverIdx = (activePlaylist.selectedServer ?? 0) < fetchedEpisodes.length
                             ? activePlaylist.selectedServer : 0;
                         const serverData = fetchedEpisodes[serverIdx]?.server_data || [];
+                        const preferEmbed = activePlaylist.preferEmbed ?? false;
                         const lines = serverData.map(ep => {
-                            const url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+                            let url;
+                            if (preferEmbed) {
+                                url = ep.link_embed && ep.link_embed.trim() ? ep.link_embed : ep.link_m3u8;
+                            } else {
+                                url = ep.link_m3u8 && ep.link_m3u8.trim() ? ep.link_m3u8 : ep.link_embed;
+                            }
                             return `${ep.name}|${url}`;
                         });
                         if (lines.length > 0) {
@@ -746,6 +787,7 @@
             activePlaylist.playedIndices = activePlaylist.playedIndices ?? [];
             activePlaylist.jsonUrl = activePlaylist.jsonUrl ?? "";
             activePlaylist.selectedServer = activePlaylist.selectedServer ?? 0;
+            activePlaylist.preferEmbed = activePlaylist.preferEmbed ?? false;
 
             playlistInput.value = activePlaylist.rawText;
             playlistNameInput.value = activePlaylist.name;
@@ -755,6 +797,7 @@
             autoSkipCheck.checked = activePlaylist.autoSkipEnabled;
             autoSkipInput.value = activePlaylist.autoSkipTime;
             autoSkipInput.disabled = !activePlaylist.autoSkipEnabled;
+            linkTypeSelect.value = activePlaylist.preferEmbed ? 'embed' : 'm3u8';
             toggleM3u8SettingsVisibility();
             
             parseAndLoadPlaylist(activePlaylist.rawText);
@@ -1100,6 +1143,7 @@
             activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
             activePlaylist.jsonUrl = jsonUrlInput.value.trim();
             activePlaylist.selectedServer = serverSelect.selectedIndex;
+            activePlaylist.preferEmbed = linkTypeSelect.value === 'embed';
 
             if (textChanged) {
                 activePlaylist.m3u8LastEp = null;
@@ -1136,6 +1180,7 @@
         activePlaylist.autoSkipTime = autoSkipInput.value || "00:00";
         activePlaylist.jsonUrl = jsonUrlInput.value.trim();
         activePlaylist.selectedServer = serverSelect.selectedIndex;
+        activePlaylist.preferEmbed = linkTypeSelect.value === 'embed';
         
         savePlaylistsToStorage();
         updateUI(true);
@@ -1162,7 +1207,41 @@
 
     // Server selector change
     serverSelect.addEventListener('change', () => {
-        populateFromServer(parseInt(serverSelect.value, 10));
+        const serverIndex = parseInt(serverSelect.value, 10);
+        populateFromServer(serverIndex);
+        
+        if (activePlaylist && activePlaylist.jsonUrl === jsonUrlInput.value.trim()) {
+            activePlaylist.selectedServer = serverIndex;
+            activePlaylist.rawText = playlistInput.value;
+            // Reset state when server changes
+            activePlaylist.m3u8LastEp = null;
+            activePlaylist.m3u8LastTime = null;
+            activePlaylist.playedIndices = [];
+            
+            parseAndLoadPlaylist(activePlaylist.rawText);
+            currentIndex = 0;
+            activePlaylist.currentIndex = 0;
+            
+            savePlaylistsToStorage();
+            updateUI(true);
+            renderVideoGrid();
+        }
+    });
+
+    // Link type change
+    linkTypeSelect.addEventListener('change', () => {
+        if (serverSelect.style.display !== 'none' && fetchedEpisodes) {
+            populateFromServer(serverSelect.selectedIndex);
+            
+            if (activePlaylist && activePlaylist.jsonUrl === jsonUrlInput.value.trim()) {
+                activePlaylist.preferEmbed = linkTypeSelect.value === 'embed';
+                activePlaylist.rawText = playlistInput.value;
+                parseAndLoadPlaylist(activePlaylist.rawText);
+                savePlaylistsToStorage();
+                updateUI(true);
+                renderVideoGrid();
+            }
+        }
     });
 
     // Periodic time save for m3u8 resume

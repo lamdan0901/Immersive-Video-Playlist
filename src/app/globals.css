@@ -357,3 +357,202 @@ select {
     min-height: 0;
   }
 }
+
+.blank-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-muted);
+  font-size: 24px;
+  text-align: center;
+  z-index: 5;
+}
+
+.counter-overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.action-hover-zone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  width: 220px;
+  height: 280px;
+  padding: 50px;
+}
+
+.action-btn {
+  position: absolute;
+  right: 20px;
+  z-index: 10;
+  min-width: 45px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.action-hover-zone:hover .action-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.inline-toast {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 80;
+  max-width: min(420px, calc(100vw - 48px));
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-panel);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+
+.playlist-detail-dock {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  left: 24px;
+  z-index: 15;
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.playlist-detail-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.84);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(16px);
+}
+
+.playlist-detail-source-panel,
+.playlist-detail-editor-stub {
+  padding: 14px;
+}
+
+.playlist-detail-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: #d4d4d4;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.playlist-detail-source-list {
+  display: grid;
+  gap: 10px;
+}
+
+.playlist-detail-chip {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playlist-detail-chip[aria-pressed="true"],
+.playlist-detail-episode-item[aria-pressed="true"],
+.playlist-detail-segment[aria-pressed="true"] {
+  border-color: rgba(59, 130, 246, 0.65);
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.playlist-detail-chip-meta,
+.playlist-detail-episode-meta,
+.playlist-detail-editor-stub p {
+  color: #a3a3a3;
+  font-size: 0.84rem;
+}
+
+.playlist-detail-episode-panel {
+  padding: 14px;
+}
+
+.playlist-detail-segmented-control {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.playlist-detail-segment {
+  min-width: 64px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.playlist-detail-episode-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(42vh, 420px);
+  overflow: auto;
+}
+
+.playlist-detail-episode-list-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.playlist-detail-episode-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.playlist-detail-episode-title {
+  font-weight: 600;
+}
+
+@media (max-width: 920px) {
+  .playlist-detail-dock {
+    grid-template-columns: 1fr;
+  }
+
+  .playlist-detail-episode-list-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}

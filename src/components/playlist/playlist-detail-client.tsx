@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
+import { savePlaybackProgress } from "@/actions/playback";
+import { EditorDrawer } from "./editor-drawer";
 import { EpisodeList } from "./episode-list";
 import { PlayerStage } from "./player-stage";
 import { SourceSwitcher } from "./source-switcher";
@@ -20,6 +22,7 @@ type Episode = {
 type Source = {
   id: string;
   sourceTitle: string;
+  sourceUrl: string;
   preferredLinkType: "m3u8" | "embed";
   version: number;
   episodes: Episode[];
@@ -49,6 +52,33 @@ export function PlaylistDetailClient({
 
   const currentSource = playlist.sources.find((source) => source.id === currentSourceId) ?? playlist.sources[0] ?? null;
   const currentEpisode = currentSource?.episodes[currentEpisodeIndex] ?? null;
+  const episodePlaybackKey = currentSource && currentEpisode ? `${currentSource.id}:${currentEpisode.episodeKey}` : null;
+  const optimisticProgressRef = useRef<Record<string, number>>({});
+  const optimisticSeconds = episodePlaybackKey ? optimisticProgressRef.current[episodePlaybackKey] : undefined;
+  const currentEpisodeLastPlayedSeconds = Math.max(currentEpisode?.lastPlayedSeconds ?? 0, optimisticSeconds ?? 0);
+  const currentEpisodeForPlayer = currentEpisode ? {
+    ...currentEpisode,
+    lastPlayedSeconds: currentEpisodeLastPlayedSeconds
+  } : null;
+
+  const onStopWatching = useCallback((input: { sourceId: string; episodeKey: string; seconds: number }) => {
+    const playbackKey = `${input.sourceId}:${input.episodeKey}`;
+    const nextSeconds = Number.isFinite(input.seconds) ? Math.max(0, Math.floor(input.seconds)) : 0;
+    const highestKnownSeconds = optimisticProgressRef.current[playbackKey] ?? 0;
+    if (nextSeconds <= highestKnownSeconds) return;
+    optimisticProgressRef.current[playbackKey] = nextSeconds;
+
+    void savePlaybackProgress({
+      playlistId: playlist.id,
+      sourceId: input.sourceId,
+      episodeKey: input.episodeKey,
+      seconds: nextSeconds
+    }).catch(() => {
+      if (optimisticProgressRef.current[playbackKey] === nextSeconds) {
+        delete optimisticProgressRef.current[playbackKey];
+      }
+    });
+  }, [playlist.id]);
 
   const selectEpisode = useCallback((index: number) => {
     if (!currentSource || !currentSource.episodes[index]) return;
@@ -99,9 +129,10 @@ export function PlaylistDetailClient({
       </div>
 
       <PlayerStage
-        episode={currentEpisode}
+        episode={currentEpisodeForPlayer}
+        sourceId={currentSource?.id ?? null}
         preferredLinkType={currentSource?.preferredLinkType ?? "embed"}
-        onStopWatching={() => undefined}
+        onStopWatching={onStopWatching}
       />
 
       <div className="action-hover-zone">
@@ -129,12 +160,21 @@ export function PlaylistDetailClient({
           onViewModeChange={setEpisodeViewMode}
         />
         {isEditorOpen ? (
-          <section className="playlist-detail-panel playlist-detail-editor-stub" aria-label="Editor drawer placeholder">
-            <div className="playlist-detail-panel-header">
-              <span>Editor</span>
-            </div>
-            <p>Editor tools land in Task 9.</p>
-          </section>
+          <EditorDrawer
+            key={`${playlist.id}:${playlist.version}:${currentSource?.id ?? "no-source"}:${currentSource?.version ?? 0}`}
+            playlist={{
+              id: playlist.id,
+              title: playlist.title,
+              version: playlist.version
+            }}
+            source={currentSource ? {
+              id: currentSource.id,
+              sourceTitle: currentSource.sourceTitle,
+              sourceUrl: currentSource.sourceUrl,
+              preferredLinkType: currentSource.preferredLinkType,
+              version: currentSource.version
+            } : null}
+          />
         ) : null}
       </div>
 

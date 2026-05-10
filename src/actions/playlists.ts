@@ -40,7 +40,7 @@ export async function updatePlaylistTitle(input: {
     .update(playlists)
     .set({
       title: nextTitle,
-      metadata: sql<Record<string, unknown>>`jsonb_set(coalesce(${playlists.metadata}, '{}'::jsonb), '{skipStartSeconds}', to_jsonb(${nextSkipStartSeconds}), true)`,
+      metadata: sql<Record<string, unknown>>`jsonb_set(coalesce(${playlists.metadata}, '{}'::jsonb), '{skipStartSeconds}', to_jsonb(${nextSkipStartSeconds}::int), true)`,
       version: input.version + 1,
       updatedAt: new Date()
     })

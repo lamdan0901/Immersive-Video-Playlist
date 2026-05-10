@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
@@ -63,6 +63,7 @@ async function updateFailedImport(sourceId: string, sourceUrl: string, message: 
     .set({
       sourceUrl,
       importError: message,
+      lastRefreshedAt: new Date(),
       updatedAt: new Date(),
       version: sql<number>`${sources.version} + 1`
     })
@@ -118,6 +119,7 @@ export async function createPlaylistFromUrl(input: {
             preferredLinkType: importedSource.preferredLinkType,
             sortOrder: index,
             importError: null,
+            lastRefreshedAt: now,
             metadata: importedSource as unknown as Record<string, unknown>,
             updatedAt: now
           })
@@ -183,6 +185,7 @@ export async function refreshSource(input: {
   const sourceRows = await db
     .select({
       id: sources.id,
+      playlistId: sources.playlistId,
       sourceKey: sources.sourceKey,
       sourceTitle: sources.sourceTitle,
       sortOrder: sources.sortOrder
@@ -195,18 +198,44 @@ export async function refreshSource(input: {
     return { ok: false, error: "Source not found." };
   }
 
-  let importedSource: ImportedSource;
-
   try {
-    const importedJson = await fetchSourceJson(sourceUrl);
-    const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
-    importedSource = matchImportedSource(sourceRow, importedMovie.sources);
+    await performSourceRefresh({ ...sourceRow, sourceUrl });
   } catch (error) {
     const message = asErrorMessage(error);
     await updateFailedImport(input.sourceId, sourceUrl, message);
     revalidatePath(`/playlist/${input.playlistId}`);
     return { ok: false, error: message };
   }
+
+  await logMutation("source.refresh", `Refreshed source ${sourceRow.sourceTitle}`, input.sourceId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidatePath("/trash");
+  revalidateTag("playlists");
+
+  return {
+    ok: true,
+    data: {
+      message: `Refreshed source ${sourceRow.sourceTitle}.`
+    }
+  };
+}
+
+async function performSourceRefresh(
+  sourceRow: {
+    id: string;
+    playlistId: string;
+    sourceKey: string;
+    sourceTitle: string;
+    sortOrder: number;
+    sourceUrl: string;
+  },
+  sourceUrlOverride?: string
+) {
+  const sourceUrl = sourceUrlOverride?.trim() || sourceRow.sourceUrl;
+  const importedJson = await fetchSourceJson(sourceUrl);
+  const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
+  const importedSource = matchImportedSource(sourceRow, importedMovie.sources);
 
   const now = new Date();
 
@@ -219,13 +248,14 @@ export async function refreshSource(input: {
         sourceUrl,
         preferredLinkType: importedSource.preferredLinkType,
         importError: null,
+        lastRefreshedAt: now,
         metadata: importedSource as unknown as Record<string, unknown>,
         updatedAt: now,
         deletedAt: null,
         purgeAfter: null,
         version: sql<number>`${sources.version} + 1`
       })
-      .where(and(eq(sources.id, input.sourceId), eq(sources.playlistId, input.playlistId)));
+      .where(and(eq(sources.id, sourceRow.id), eq(sources.playlistId, sourceRow.playlistId)));
 
     const existingEpisodes = await tx
       .select({
@@ -237,7 +267,7 @@ export async function refreshSource(input: {
         deletedAt: episodes.deletedAt
       })
       .from(episodes)
-      .where(eq(episodes.sourceId, input.sourceId));
+      .where(eq(episodes.sourceId, sourceRow.id));
 
     const normalizedEpisodes = preserveEpisodeIdentity(existingEpisodes, importedSource.episodes);
     const result = reconcileEpisodes(existingEpisodes, normalizedEpisodes);
@@ -247,7 +277,7 @@ export async function refreshSource(input: {
         .insert(episodes)
         .values(
           result.upserts.map((episode) => ({
-            sourceId: input.sourceId,
+            sourceId: sourceRow.id,
             episodeKey: episode.episodeKey,
             title: episode.title,
             slug: episode.slug,
@@ -288,28 +318,67 @@ export async function refreshSource(input: {
         })
         .where(
           and(
-            eq(episodes.sourceId, input.sourceId),
+            eq(episodes.sourceId, sourceRow.id),
             inArray(episodes.episodeKey, result.softDeletes),
             isNull(episodes.deletedAt)
           )
         );
     }
 
-    await writeSnapshot(tx, input.sourceId, importedSource);
+    await writeSnapshot(tx, sourceRow.id, importedSource);
   });
+}
 
-  await logMutation("source.refresh", `Refreshed source ${importedSource.sourceTitle}`, input.sourceId);
-  revalidatePath("/");
-  revalidatePath(`/playlist/${input.playlistId}`);
-  revalidatePath("/trash");
-  revalidateTag("playlists");
+export async function autoRefreshPlaylist(playlistId?: string) {
+  const threshold = sql<Date>`now() - interval '4 hours'`;
 
-  return {
-    ok: true,
-    data: {
-      message: `Refreshed source ${importedSource.sourceTitle}.`
+  const conditions = [
+    isNull(sources.deletedAt),
+    or(isNull(sources.lastRefreshedAt), lt(sources.lastRefreshedAt, threshold))
+  ];
+
+  if (playlistId) {
+    conditions.push(eq(sources.playlistId, playlistId));
+  }
+
+  let query = db
+    .select({
+      id: sources.id,
+      playlistId: sources.playlistId,
+      sourceKey: sources.sourceKey,
+      sourceTitle: sources.sourceTitle,
+      sortOrder: sources.sortOrder,
+      sourceUrl: sources.sourceUrl
+    })
+    .from(sources)
+    .where(and(...conditions))
+    .orderBy(asc(sources.lastRefreshedAt));
+
+  if (!playlistId) {
+    query = query.limit(5) as typeof query;
+  }
+
+  const staleSources = await query;
+
+  let refreshedCount = 0;
+  for (const sourceRow of staleSources) {
+    try {
+      await performSourceRefresh(sourceRow);
+      refreshedCount++;
+    } catch (error) {
+      const message = asErrorMessage(error);
+      await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
     }
-  };
+  }
+
+  if (refreshedCount > 0) {
+    revalidatePath("/");
+    if (playlistId) {
+      revalidatePath(`/playlist/${playlistId}`);
+    }
+    revalidatePath("/trash");
+    revalidateTag("playlists");
+  }
 }
 
 export { fetchSourceJson };

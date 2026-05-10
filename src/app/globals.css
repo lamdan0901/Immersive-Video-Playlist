@@ -628,10 +628,6 @@ select {
 
 .action-btn-edit {
   top: 84px;
-  width: auto;
-  min-width: 48px;
-  padding: 10px 16px;
-  font-size: 14px;
 }
 
 .action-hover-zone:hover .action-btn {
@@ -726,8 +722,10 @@ select {
 }
 
 .action-source-item {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 11px 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -757,8 +755,10 @@ select {
 }
 
 .action-source-item-meta {
+  flex-shrink: 0;
   color: #a3a3a3;
   font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .action-playlist-control {
@@ -952,8 +952,10 @@ select {
 }
 
 .playlist-detail-chip {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -970,11 +972,20 @@ select {
   background: rgba(59, 130, 246, 0.16);
 }
 
+.playlist-detail-chip > span:not(.playlist-detail-chip-meta) {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .playlist-detail-chip-meta,
 .playlist-detail-episode-meta,
 .playlist-detail-editor-stub p {
+  flex-shrink: 0;
   color: #a3a3a3;
   font-size: 0.84rem;
+  white-space: nowrap;
 }
 
 .playlist-detail-episode-panel {
@@ -1059,6 +1070,40 @@ select {
 .playlist-editor-field input,
 .playlist-editor-field select {
   width: 100%;
+}
+
+.playlist-editor-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding: 12px 36px 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background:
+    #181818
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a3a3a3' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+    no-repeat right 12px center;
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+  color-scheme: dark;
+}
+
+.playlist-editor-field select:focus {
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.playlist-editor-field select option {
+  background: #181818;
+  color: #fff;
+}
+
+.playlist-editor-field select option:hover,
+.playlist-editor-field select option:focus,
+.playlist-editor-field select option:checked {
+  background: rgba(59, 130, 246, 0.35);
+  color: #fff;
 }
 
 .playlist-editor-note {

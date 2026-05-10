@@ -7,7 +7,7 @@ import {
   createBlankSource,
   softDeleteSource,
   updatePlaylistTitle,
-  updateSource
+  updateSource,
 } from "@/actions/playlists";
 import type { LinkType } from "@/lib/types";
 
@@ -32,11 +32,17 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   const initialAdvancedJson = JSON.stringify({ playlist, source }, null, 2);
   const [isPending, startTransition] = useTransition();
   const [playlistTitle, setPlaylistTitle] = useState(playlist.title);
-  const [skipStartMinutes, setSkipStartMinutes] = useState(String(Math.floor(playlist.skipStartSeconds / 60)));
-  const [skipStartSeconds, setSkipStartSeconds] = useState(String(playlist.skipStartSeconds % 60).padStart(2, "0"));
+  const [skipStartMinutes, setSkipStartMinutes] = useState(
+    String(Math.floor(playlist.skipStartSeconds / 60)),
+  );
+  const [skipStartSeconds, setSkipStartSeconds] = useState(
+    String(playlist.skipStartSeconds % 60).padStart(2, "0"),
+  );
   const [sourceTitle, setSourceTitle] = useState(source?.sourceTitle ?? "");
   const [sourceUrl, setSourceUrl] = useState(source?.sourceUrl ?? "");
-  const [preferredLinkType, setPreferredLinkType] = useState<LinkType>(source?.preferredLinkType ?? "embed");
+  const [preferredLinkType, setPreferredLinkType] = useState<LinkType>(
+    source?.preferredLinkType ?? "embed",
+  );
   const [advancedJson, setAdvancedJson] = useState(initialAdvancedJson);
   const [status, setStatus] = useState<string | null>(null);
   const skipStartSecondsRef = useRef<HTMLInputElement>(null);
@@ -64,25 +70,37 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
 
     const parsedSkipStartMinutes = Number(skipStartMinutes);
     const parsedSkipStartSeconds = Number(skipStartSeconds);
-    if (!Number.isFinite(parsedSkipStartMinutes) || parsedSkipStartMinutes < 0) {
+    if (
+      !Number.isFinite(parsedSkipStartMinutes) ||
+      parsedSkipStartMinutes < 0
+    ) {
       setStatus("Skip start must be a non-negative number.");
       return;
     }
 
-    if (!Number.isFinite(parsedSkipStartSeconds) || parsedSkipStartSeconds < 0 || parsedSkipStartSeconds > 59) {
+    if (
+      !Number.isFinite(parsedSkipStartSeconds) ||
+      parsedSkipStartSeconds < 0 ||
+      parsedSkipStartSeconds > 59
+    ) {
       setStatus("Skip start seconds must be between 0 and 59.");
       return;
     }
 
-    const nextSkipStartSeconds = Math.floor(parsedSkipStartMinutes) * 60 + Math.floor(parsedSkipStartSeconds);
+    const nextSkipStartSeconds =
+      Math.floor(parsedSkipStartMinutes) * 60 +
+      Math.floor(parsedSkipStartSeconds);
 
-    if (playlistTitle.trim() !== playlist.title || nextSkipStartSeconds !== playlist.skipStartSeconds) {
+    if (
+      playlistTitle.trim() !== playlist.title ||
+      nextSkipStartSeconds !== playlist.skipStartSeconds
+    ) {
       const playlistResult = await updatePlaylistTitle({
         adminSecret,
         playlistId: playlist.id,
         title: playlistTitle,
         skipStartSeconds: nextSkipStartSeconds,
-        version: playlist.version
+        version: playlist.version,
       });
 
       if (!playlistResult.ok) {
@@ -105,7 +123,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
           sourceTitle,
           sourceUrl,
           preferredLinkType,
-          version: source.version
+          version: source.version,
         });
 
         if (!sourceResult.ok) {
@@ -126,7 +144,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
       playlistVersion: playlist.version,
       sourceTitle: "New Source",
       sourceUrl: "",
-      preferredLinkType: "embed"
+      preferredLinkType: "embed",
     });
 
     setStatus(result.ok ? "Created a new blank source." : result.error);
@@ -145,7 +163,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
       adminSecret,
       playlistId: playlist.id,
       sourceId: source.id,
-      sourceUrl
+      sourceUrl,
     });
 
     setStatus(result.ok ? result.data.message : result.error);
@@ -165,7 +183,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
       playlistId: playlist.id,
       playlistVersion: playlist.version,
       sourceId: source.id,
-      sourceVersion: source.version
+      sourceVersion: source.version,
     });
 
     setStatus(result.ok ? "Source moved to trash." : result.error);
@@ -191,7 +209,10 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
 
       if (parsed.playlist?.skipStartSeconds != null) {
         const parsedSkipStartValue = Number(parsed.playlist.skipStartSeconds);
-        if (Number.isFinite(parsedSkipStartValue) && parsedSkipStartValue >= 0) {
+        if (
+          Number.isFinite(parsedSkipStartValue) &&
+          parsedSkipStartValue >= 0
+        ) {
           applySkipStartValue(parsedSkipStartValue);
         }
       }
@@ -205,7 +226,10 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
           setSourceUrl(parsed.source.sourceUrl);
         }
 
-        if (parsed.source.preferredLinkType === "embed" || parsed.source.preferredLinkType === "m3u8") {
+        if (
+          parsed.source.preferredLinkType === "embed" ||
+          parsed.source.preferredLinkType === "m3u8"
+        ) {
           setPreferredLinkType(parsed.source.preferredLinkType);
         }
       }
@@ -236,17 +260,25 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   }
 
   return (
-    <section className="playlist-detail-panel playlist-detail-source-panel" aria-label="Editor drawer">
+    <section
+      className="playlist-detail-panel playlist-detail-source-panel"
+      aria-label="Editor drawer"
+    >
       <div className="playlist-detail-panel-header">
         <h2 style={{ margin: 0, fontSize: "1rem" }}>Editor</h2>
-        {isPending ? <span className="playlist-detail-chip-meta">Working...</span> : null}
+        {isPending ? (
+          <span className="playlist-detail-chip-meta">Working...</span>
+        ) : null}
       </div>
 
       <div className="playlist-editor-form">
         <div className="playlist-editor-row playlist-editor-row-3up">
           <label className="admin-unlock-field playlist-editor-field">
             <span>Playlist title</span>
-            <input value={playlistTitle} onChange={(event) => setPlaylistTitle(event.target.value)} />
+            <input
+              value={playlistTitle}
+              onChange={(event) => setPlaylistTitle(event.target.value)}
+            />
           </label>
 
           <div className="admin-unlock-field playlist-editor-field">
@@ -257,17 +289,26 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={skipStartMinutes}
-                onChange={(event) => handleSkipStartMinutesChange(event.target.value)}
+                onChange={(event) =>
+                  handleSkipStartMinutesChange(event.target.value)
+                }
                 onFocus={handleSelectAllOnFocus}
               />
-              <span aria-hidden="true" className="playlist-editor-skip-separator">:</span>
+              <span
+                aria-hidden="true"
+                className="playlist-editor-skip-separator"
+              >
+                :
+              </span>
               <input
                 ref={skipStartSecondsRef}
                 aria-label="Skip start seconds"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={skipStartSeconds}
-                onChange={(event) => handleSkipStartSecondsChange(event.target.value)}
+                onChange={(event) =>
+                  handleSkipStartSecondsChange(event.target.value)
+                }
                 onFocus={handleSelectAllOnFocus}
               />
             </div>
@@ -276,15 +317,11 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
           <label className="admin-unlock-field playlist-editor-field">
             <span>Preferred link type</span>
             <select
+              className="playlist-editor-select"
               value={preferredLinkType}
-              onChange={(event) => setPreferredLinkType(event.target.value as LinkType)}
-              style={{
-                padding: "12px 14px",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                borderRadius: 8,
-                background: "rgba(255, 255, 255, 0.04)",
-                color: "var(--color-text)"
-              }}
+              onChange={(event) =>
+                setPreferredLinkType(event.target.value as LinkType)
+              }
             >
               <option value="embed">embed</option>
               <option value="m3u8">m3u8</option>
@@ -292,46 +329,85 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
           </label>
         </div>
 
-        <p className="playlist-detail-chip-meta playlist-editor-note">
-          Skip start (m:ss). Embedded iframe players may ignore it unless the provider exposes seeking controls.
-        </p>
-
         <div className="playlist-editor-row playlist-editor-row-source-actions">
           <label className="admin-unlock-field playlist-editor-field">
             <span>Source title</span>
-            <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} />
+            <input
+              value={sourceTitle}
+              onChange={(event) => setSourceTitle(event.target.value)}
+            />
           </label>
 
           <label className="admin-unlock-field playlist-editor-field">
             <span>Source URL</span>
-            <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
+            <input
+              value={sourceUrl}
+              onChange={(event) => setSourceUrl(event.target.value)}
+            />
           </label>
 
           <div className="playlist-editor-row playlist-editor-row-button-grid">
-            <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleCreate)}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={isPending}
+              onClick={() => runWithAdminSecret(handleCreate)}
+            >
               Create New Source
             </button>
-            <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleRefresh)}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={isPending}
+              onClick={() => runWithAdminSecret(handleRefresh)}
+            >
               Refresh Source
             </button>
-            <button type="button" className="accent-button" disabled={isPending} onClick={() => runWithAdminSecret(handleSave)}>
+            <button
+              type="button"
+              className="accent-button"
+              disabled={isPending}
+              onClick={() => runWithAdminSecret(handleSave)}
+            >
               Save
             </button>
-            <button type="button" className="ghost-button" disabled={isPending || !source} onClick={() => runWithAdminSecret(handleDelete)}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={isPending || !source}
+              onClick={() => runWithAdminSecret(handleDelete)}
+            >
               Delete Source
             </button>
           </div>
         </div>
 
-        {status ? <p className="playlist-detail-chip-meta" role="status">{status}</p> : null}
+        {status ? (
+          <p className="playlist-detail-chip-meta" role="status">
+            {status}
+          </p>
+        ) : null}
 
         <details className="playlist-editor-advanced-row">
           <summary>Advanced JSON</summary>
-          <div className="playlist-editor-row playlist-editor-row-actions" style={{ marginTop: 12 }}>
-            <button type="button" className="ghost-button" disabled={isPending} onClick={handleApplyJson}>
+          <div
+            className="playlist-editor-row playlist-editor-row-actions"
+            style={{ marginTop: 12 }}
+          >
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={isPending}
+              onClick={handleApplyJson}
+            >
               Apply JSON
             </button>
-            <button type="button" className="ghost-button" disabled={isPending} onClick={() => setAdvancedJson(initialAdvancedJson)}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={isPending}
+              onClick={() => setAdvancedJson(initialAdvancedJson)}
+            >
               Reset JSON
             </button>
           </div>
@@ -346,7 +422,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
               border: "1px solid rgba(255, 255, 255, 0.1)",
               borderRadius: 8,
               background: "rgba(255, 255, 255, 0.04)",
-              color: "var(--color-text)"
+              color: "var(--color-text)",
             }}
           />
         </details>

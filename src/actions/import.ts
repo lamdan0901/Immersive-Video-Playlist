@@ -1,7 +1,7 @@
 "use server";
 
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
@@ -152,6 +152,7 @@ export async function createPlaylistFromUrl(input: {
     await logMutation("playlist.create", `Imported playlist ${importedMovie.title}`, playlistId);
     revalidatePath("/");
     revalidatePath(`/playlist/${playlistId}`);
+    revalidateTag("playlists");
 
     return {
       ok: true,
@@ -301,6 +302,7 @@ export async function refreshSource(input: {
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
   revalidatePath("/trash");
+  revalidateTag("playlists");
 
   return {
     ok: true,

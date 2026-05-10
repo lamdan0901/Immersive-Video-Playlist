@@ -1,4 +1,5 @@
 import { asc, desc, isNull } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import { db } from "@/db/client";
 import { playlists, sources } from "@/db/schema";
 import { chooseBanner } from "@/lib/banner";
@@ -11,7 +12,7 @@ export type PlaylistSummary = SearchablePlaylist & {
   version: number;
 };
 
-export async function getPlaylistSummaries(): Promise<PlaylistSummary[]> {
+async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
   const playlistRows = await db.query.playlists.findMany({
     where: isNull(playlists.deletedAt),
     orderBy: [desc(playlists.lastPlayedAt), desc(playlists.pinned), asc(playlists.pinnedOrder)],
@@ -46,3 +47,9 @@ export async function getPlaylistSummaries(): Promise<PlaylistSummary[]> {
     };
   });
 }
+
+export const getPlaylistSummaries = unstable_cache(
+  fetchPlaylistSummaries,
+  ["playlist-summaries"],
+  { tags: ["playlists"] }
+);

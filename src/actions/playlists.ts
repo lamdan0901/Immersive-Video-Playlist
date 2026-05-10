@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import { mutationLogs, playlists, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
@@ -54,6 +54,7 @@ export async function updatePlaylistTitle(input: {
   await logMutation("playlist.update", `Updated playlist settings for ${nextTitle}`, input.playlistId);
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
+  revalidateTag("playlists");
   return { ok: true, data: undefined };
 }
 
@@ -84,6 +85,7 @@ export async function softDeletePlaylist(input: {
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
   revalidatePath("/trash");
+  revalidateTag("playlists");
   return { ok: true, data: undefined };
 }
 
@@ -127,6 +129,7 @@ export async function updateSource(input: {
   await logMutation("source.update", `Updated source ${nextTitle}`, input.sourceId);
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
+  revalidateTag("playlists");
   return { ok: true, data: undefined };
 }
 
@@ -256,5 +259,6 @@ export async function softDeleteSource(input: {
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
   revalidatePath("/trash");
+  revalidateTag("playlists");
   return { ok: true, data: undefined };
 }

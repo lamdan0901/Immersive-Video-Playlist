@@ -1,6 +1,6 @@
 "use client";
 
-import { House, List, Pencil, StepForward } from "lucide-react";
+import { House, Library, List, Pencil, StepForward } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
@@ -38,54 +38,86 @@ type PlaylistDetail = {
 
 export function PlaylistDetailClient({
   playlist,
-  initialPlayback
+  initialPlayback,
+  allPlaylists = [],
 }: {
   playlist: PlaylistDetail;
   initialPlayback: { sourceId: string | null; episodeIndex: number };
+  allPlaylists?: { id: string; title: string }[];
 }) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [currentSourceId, setCurrentSourceId] = useState<string | null>(initialPlayback.sourceId ?? playlist.sources[0]?.id ?? null);
-  const [currentEpisodeIndex, setCurrentEpisodeIndex] = useState(initialPlayback.episodeIndex);
+  const [currentSourceId, setCurrentSourceId] = useState<string | null>(
+    initialPlayback.sourceId ?? playlist.sources[0]?.id ?? null,
+  );
+  const [currentEpisodeIndex, setCurrentEpisodeIndex] = useState(
+    initialPlayback.episodeIndex,
+  );
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const currentSource = playlist.sources.find((source) => source.id === currentSourceId) ?? playlist.sources[0] ?? null;
+  const currentSource =
+    playlist.sources.find((source) => source.id === currentSourceId) ??
+    playlist.sources[0] ??
+    null;
   const currentEpisode = currentSource?.episodes[currentEpisodeIndex] ?? null;
-  const hasNextEpisode = currentSource ? currentEpisodeIndex < currentSource.episodes.length - 1 : false;
-  const episodePlaybackKey = currentSource && currentEpisode ? `${currentSource.id}:${currentEpisode.episodeKey}` : null;
+  const hasNextEpisode = currentSource
+    ? currentEpisodeIndex < currentSource.episodes.length - 1
+    : false;
+  const episodePlaybackKey =
+    currentSource && currentEpisode
+      ? `${currentSource.id}:${currentEpisode.episodeKey}`
+      : null;
   const optimisticProgressRef = useRef<Record<string, number>>({});
-  const optimisticSeconds = episodePlaybackKey ? optimisticProgressRef.current[episodePlaybackKey] : undefined;
-  const currentEpisodeLastPlayedSeconds = Math.max(currentEpisode?.lastPlayedSeconds ?? 0, optimisticSeconds ?? 0);
-  const currentEpisodeForPlayer = currentEpisode ? {
-    ...currentEpisode,
-    lastPlayedSeconds: currentEpisodeLastPlayedSeconds
-  } : null;
-
-  const onStopWatching = useCallback((input: { sourceId: string; episodeKey: string; seconds: number }) => {
-    const playbackKey = `${input.sourceId}:${input.episodeKey}`;
-    const nextSeconds = Number.isFinite(input.seconds) ? Math.max(0, Math.floor(input.seconds)) : 0;
-    const highestKnownSeconds = optimisticProgressRef.current[playbackKey] ?? 0;
-    if (nextSeconds <= highestKnownSeconds) return;
-    optimisticProgressRef.current[playbackKey] = nextSeconds;
-
-    void savePlaybackProgress({
-      playlistId: playlist.id,
-      sourceId: input.sourceId,
-      episodeKey: input.episodeKey,
-      seconds: nextSeconds
-    }).catch(() => {
-      if (optimisticProgressRef.current[playbackKey] === nextSeconds) {
-        delete optimisticProgressRef.current[playbackKey];
+  const optimisticSeconds = episodePlaybackKey
+    ? optimisticProgressRef.current[episodePlaybackKey]
+    : undefined;
+  const currentEpisodeLastPlayedSeconds = Math.max(
+    currentEpisode?.lastPlayedSeconds ?? 0,
+    optimisticSeconds ?? 0,
+  );
+  const currentEpisodeForPlayer = currentEpisode
+    ? {
+        ...currentEpisode,
+        lastPlayedSeconds: currentEpisodeLastPlayedSeconds,
       }
-    });
-  }, [playlist.id]);
+    : null;
 
-  const selectEpisode = useCallback((index: number) => {
-    if (!currentSource || !currentSource.episodes[index]) return;
-    setCurrentEpisodeIndex(index);
-    router.push(`/playlist/${playlist.id}?source=${currentSource.id}&episode=${index}`);
-  }, [currentSource, playlist.id, router]);
+  const onStopWatching = useCallback(
+    (input: { sourceId: string; episodeKey: string; seconds: number }) => {
+      const playbackKey = `${input.sourceId}:${input.episodeKey}`;
+      const nextSeconds = Number.isFinite(input.seconds)
+        ? Math.max(0, Math.floor(input.seconds))
+        : 0;
+      const highestKnownSeconds =
+        optimisticProgressRef.current[playbackKey] ?? 0;
+      if (nextSeconds <= highestKnownSeconds) return;
+      optimisticProgressRef.current[playbackKey] = nextSeconds;
+
+      void savePlaybackProgress({
+        playlistId: playlist.id,
+        sourceId: input.sourceId,
+        episodeKey: input.episodeKey,
+        seconds: nextSeconds,
+      }).catch(() => {
+        if (optimisticProgressRef.current[playbackKey] === nextSeconds) {
+          delete optimisticProgressRef.current[playbackKey];
+        }
+      });
+    },
+    [playlist.id],
+  );
+
+  const selectEpisode = useCallback(
+    (index: number) => {
+      if (!currentSource || !currentSource.episodes[index]) return;
+      setCurrentEpisodeIndex(index);
+      router.push(
+        `/playlist/${playlist.id}?source=${currentSource.id}&episode=${index}`,
+      );
+    },
+    [currentSource, playlist.id, router],
+  );
 
   const goToNextEpisode = useCallback(() => {
     if (!hasNextEpisode) return;
@@ -93,7 +125,9 @@ export function PlaylistDetailClient({
   }, [currentEpisodeIndex, hasNextEpisode, selectEpisode]);
 
   const switchSource = (nextSourceId: string) => {
-    const nextSource = playlist.sources.find((source) => source.id === nextSourceId);
+    const nextSource = playlist.sources.find(
+      (source) => source.id === nextSourceId,
+    );
     if (!nextSource) return;
 
     if (!nextSource.episodes[currentEpisodeIndex]) {
@@ -103,7 +137,9 @@ export function PlaylistDetailClient({
     }
 
     setCurrentSourceId(nextSource.id);
-    router.push(`/playlist/${playlist.id}?source=${nextSource.id}&episode=${currentEpisodeIndex}`);
+    router.push(
+      `/playlist/${playlist.id}?source=${nextSource.id}&episode=${currentEpisodeIndex}`,
+    );
   };
 
   const closeEditor = useCallback(() => {
@@ -118,7 +154,12 @@ export function PlaylistDetailClient({
     }
 
     const target = event.target as HTMLElement;
-    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT"
+    )
+      return;
 
     if (event.ctrlKey && !event.altKey && event.code === "KeyE") {
       event.preventDefault();
@@ -159,7 +200,11 @@ export function PlaylistDetailClient({
         >
           <House aria-hidden="true" size={16} strokeWidth={2.2} />
         </button>
-        <span>{currentSource ? `${currentEpisodeIndex + 1}/${currentSource.episodes.length}` : "0/0"}</span>
+        <span>
+          {currentSource
+            ? `${currentEpisodeIndex + 1}/${currentSource.episodes.length}`
+            : "0/0"}
+        </span>
       </div>
 
       <PlayerStage
@@ -209,9 +254,12 @@ export function PlaylistDetailClient({
                     aria-pressed={source.id === currentSource?.id}
                     onClick={() => switchSource(source.id)}
                   >
-                    <span className="action-source-item-title">{source.sourceTitle}</span>
+                    <span className="action-source-item-title">
+                      {source.sourceTitle}
+                    </span>
                     <span className="action-source-item-meta">
-                      {source.episodes.length} ep · {source.preferredLinkType.toUpperCase()}
+                      {source.episodes.length} ep ·{" "}
+                      {source.preferredLinkType.toUpperCase()}
                     </span>
                   </button>
                 ))}
@@ -219,11 +267,50 @@ export function PlaylistDetailClient({
             </div>
           </div>
         ) : null}
+        {allPlaylists.length > 1 ? (
+          <div className="action-playlist-control">
+            <button
+              type="button"
+              className="action-playlist-trigger"
+              aria-label="Select playlist"
+            >
+              <Library aria-hidden="true" size={18} strokeWidth={2.2} />
+            </button>
+            <div
+              className="action-playlist-select-panel"
+              aria-label="Playlists"
+            >
+              <span>Playlists</span>
+              <div className="action-playlist-list">
+                {allPlaylists
+                  .filter((p) => p.id !== playlist.id)
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="action-playlist-item"
+                      onClick={() => router.push(`/playlist/${p.id}`)}
+                    >
+                      <span className="action-playlist-item-title">
+                        {p.title}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {isEditorOpen ? (
-        <div className="playlist-detail-editor-overlay" onMouseDown={closeEditor}>
-          <div className="playlist-detail-dock" onMouseDown={(event) => event.stopPropagation()}>
+        <div
+          className="playlist-detail-editor-overlay"
+          onMouseDown={closeEditor}
+        >
+          <div
+            className="playlist-detail-dock"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
             <EpisodeList
               episodes={currentSource?.episodes ?? []}
               currentEpisodeIndex={currentEpisodeIndex}
@@ -235,15 +322,19 @@ export function PlaylistDetailClient({
                 id: playlist.id,
                 title: playlist.title,
                 skipStartSeconds: playlist.skipStartSeconds,
-                version: playlist.version
+                version: playlist.version,
               }}
-              source={currentSource ? {
-                id: currentSource.id,
-                sourceTitle: currentSource.sourceTitle,
-                sourceUrl: currentSource.sourceUrl,
-                preferredLinkType: currentSource.preferredLinkType,
-                version: currentSource.version
-              } : null}
+              source={
+                currentSource
+                  ? {
+                      id: currentSource.id,
+                      sourceTitle: currentSource.sourceTitle,
+                      sourceUrl: currentSource.sourceUrl,
+                      preferredLinkType: currentSource.preferredLinkType,
+                      version: currentSource.version,
+                    }
+                  : null
+              }
             />
           </div>
         </div>

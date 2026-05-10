@@ -47,6 +47,7 @@ vi.mock("hls.js", () => ({
 const playlist = {
   id: "playlist-1",
   title: "Fate Chooses You",
+  skipStartSeconds: 15,
   version: 1,
   sources: [
     {
@@ -103,6 +104,25 @@ describe("PlaylistDetailClient", () => {
     vi.useFakeTimers();
   });
 
+  it("hides sources and episodes until the editor is opened", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    expect(screen.queryByRole("region", { name: "Source switcher" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Episode list" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+
+    expect(screen.getByRole("region", { name: "Source switcher" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Episode list" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
+  });
+
   it("renders the editor drawer with playlist and source fields", () => {
     render(
       <PlaylistDetailClient
@@ -115,6 +135,8 @@ describe("PlaylistDetailClient", () => {
 
     expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
     expect(screen.getByLabelText("Playlist title")).toHaveValue("Fate Chooses You");
+    expect(screen.getByLabelText("Skip start minutes")).toHaveValue("0");
+    expect(screen.getByLabelText("Skip start seconds")).toHaveValue("15");
     expect(screen.getByLabelText("Source title")).toHaveValue("Vietsub");
     expect(screen.getByLabelText("Source URL")).toHaveValue("https://video.test/source-a.json");
     expect(screen.getByLabelText("Preferred link type")).toHaveValue("embed");
@@ -123,6 +145,124 @@ describe("PlaylistDetailClient", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Source" })).toBeInTheDocument();
     expect(screen.getByText("Advanced JSON")).toBeInTheDocument();
+    expect(screen.getByText("Embedded iframe players may ignore skip start unless the provider exposes seeking controls.")).toBeInTheDocument();
+    expect(screen.queryByText("Skip start minutes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Skip start seconds")).not.toBeInTheDocument();
+  });
+
+  it("moves focus to skip-start seconds after entering the minute digit", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+
+    const minutesInput = screen.getByLabelText("Skip start minutes");
+    const secondsInput = screen.getByLabelText("Skip start seconds");
+
+    fireEvent.focus(minutesInput);
+    fireEvent.change(minutesInput, { target: { value: "2" } });
+
+    expect(minutesInput).toHaveValue("2");
+    expect(document.activeElement).toBe(secondsInput);
+  });
+
+  it("selects the full skip-start field value on focus", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+
+    const minutesInput = screen.getByLabelText("Skip start minutes") as HTMLInputElement;
+    const secondsInput = screen.getByLabelText("Skip start seconds") as HTMLInputElement;
+
+    fireEvent.focus(minutesInput);
+
+    expect(minutesInput.selectionStart).toBe(0);
+    expect(minutesInput.selectionEnd).toBe(minutesInput.value.length);
+
+    fireEvent.focus(secondsInput);
+
+    expect(secondsInput.selectionStart).toBe(0);
+    expect(secondsInput.selectionEnd).toBe(secondsInput.value.length);
+  });
+
+  it("closes the editor when Escape is pressed", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+    expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByLabelText("Playlist detail"), { key: "Escape", code: "Escape" });
+
+    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open editor" })).toBeInTheDocument();
+  });
+
+  it("closes the editor when clicking outside the dock", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+    expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText("Playlist detail"));
+
+    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open editor" })).toBeInTheDocument();
+  });
+
+  it("navigates back to the home page from the title bar button", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/");
+    expect(screen.getByRole("button", { name: "Back to home" }).nextElementSibling).toHaveTextContent("1/2");
+  });
+
+  it("toggles the editor with Ctrl+E", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
+      code: "KeyE",
+      ctrlKey: true
+    });
+
+    expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
+      code: "KeyE",
+      ctrlKey: true
+    });
+
+    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
   });
 
   it("keeps the current source when the target source does not have the current episode index", () => {
@@ -133,6 +273,7 @@ describe("PlaylistDetailClient", () => {
       />
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
     fireEvent.click(screen.getByRole("button", { name: "Dubbed" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("Episode does not exist in that source");
@@ -146,7 +287,7 @@ describe("PlaylistDetailClient", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("advances to the next episode on Ctrl+Alt+X and updates the route", () => {
+  it("advances to the next episode on Ctrl+X and updates the route", () => {
     render(
       <PlaylistDetailClient
         playlist={playlist}
@@ -156,12 +297,49 @@ describe("PlaylistDetailClient", () => {
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyX",
-      ctrlKey: true,
-      altKey: true
+      ctrlKey: true
     });
 
-    expect(screen.getByRole("button", { name: "Episode 2" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("2/2")).toBeInTheDocument();
     expect(pushMock).toHaveBeenCalledWith("/playlist/playlist-1?source=source-a&episode=1");
+  });
+
+  it("shows a next episode button when another episode exists and advances on click", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Next episode" }));
+
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+    expect(pushMock).toHaveBeenCalledWith("/playlist/playlist-1?source=source-a&episode=1");
+  });
+
+  it("renders the edit control as an icon button", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    const editButton = screen.getByRole("button", { name: "Open editor" });
+    expect(editButton).toContainHTML("svg");
+    expect(editButton).not.toHaveTextContent("Edit");
+  });
+
+  it("hides the next episode button on the last episode", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Next episode" })).not.toBeInTheDocument();
   });
 
   it("focuses the wrapper on mount", () => {
@@ -177,6 +355,18 @@ describe("PlaylistDetailClient", () => {
     expect(document.activeElement).toBe(wrapper);
   });
 
+  it("shows only the episode progress counter in the top-left overlay", () => {
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+    expect(screen.queryByText("Fate Chooses You · 1/2")).not.toBeInTheDocument();
+  });
+
   it("ignores the shortcut when there is no current source", () => {
     render(
       <PlaylistDetailClient
@@ -187,8 +377,7 @@ describe("PlaylistDetailClient", () => {
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyX",
-      ctrlKey: true,
-      altKey: true
+      ctrlKey: true
     });
 
     expect(screen.getByText("No episode loaded.")).toBeInTheDocument();
@@ -355,6 +544,7 @@ describe("PlaylistDetailClient", () => {
     currentTime = 60;
     fireEvent.pause(initialVideo);
 
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
     fireEvent.click(screen.getByRole("button", { name: "Episode 1" }));
     fireEvent.click(screen.getByRole("button", { name: "Episode 2" }));
     const revisitedVideo = installVideoState();
@@ -362,6 +552,42 @@ describe("PlaylistDetailClient", () => {
     fireEvent.loadedMetadata(revisitedVideo);
 
     expect(currentTime).toBe(60);
+  });
+
+  it("applies playlist skip start when it is ahead of saved progress for native playback", () => {
+    const { container } = render(
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          sources: playlist.sources.map((source) => ({
+            ...source,
+            preferredLinkType: "m3u8" as const
+          }))
+        }}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />
+    );
+
+    let currentTime = 0;
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    if (!video) return;
+
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+      }
+    });
+    Object.defineProperty(video, "play", {
+      configurable: true,
+      value: vi.fn(() => Promise.resolve())
+    });
+
+    fireEvent.loadedMetadata(video);
+
+    expect(currentTime).toBe(15);
   });
 
   it("saves progress to the old episode before switching episodes", () => {
@@ -386,6 +612,7 @@ describe("PlaylistDetailClient", () => {
       value: 44
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
     fireEvent.click(screen.getByRole("button", { name: "Episode 1" }));
 
     expect(savePlaybackProgressMock).toHaveBeenCalledWith({

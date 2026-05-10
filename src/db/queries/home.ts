@@ -8,6 +8,7 @@ import { extractArtworkUrls, extractMetadataText } from "./home-metadata";
 export type PlaylistSummary = SearchablePlaylist & {
   banner: ReturnType<typeof chooseBanner>;
   updatedAt: string;
+  version: number;
 };
 
 export async function getPlaylistSummaries(): Promise<PlaylistSummary[]> {
@@ -33,6 +34,7 @@ export async function getPlaylistSummaries(): Promise<PlaylistSummary[]> {
       metadataText: extractMetadataText(playlist.metadata),
       pinned: playlist.pinned,
       pinnedOrder: playlist.pinnedOrder,
+      version: playlist.version,
       lastPlayedAt: playlist.lastPlayedAt?.toISOString() ?? null,
       updatedAt: playlist.updatedAt.toISOString(),
       banner: chooseBanner({

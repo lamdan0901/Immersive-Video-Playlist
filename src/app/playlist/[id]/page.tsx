@@ -1,5 +1,5 @@
 import { getPlaylistDetail } from "@/db/queries/playlist";
-import { resolveInitialPlayback } from "@/lib/playback";
+import { resolveInitialPlayback, resolveSkipStartSeconds } from "@/lib/playback";
 import { PlaylistDetailClient } from "@/components/playlist/playlist-detail-client";
 
 export default async function PlaylistDetailPage({
@@ -17,5 +17,13 @@ export default async function PlaylistDetailPage({
     episodeIndex: query.episode ?? null
   });
 
-  return <PlaylistDetailClient playlist={playlist} initialPlayback={initial} />;
+  return (
+    <PlaylistDetailClient
+      playlist={{
+        ...playlist,
+        skipStartSeconds: resolveSkipStartSeconds(playlist.metadata)
+      }}
+      initialPlayback={initial}
+    />
+  );
 }

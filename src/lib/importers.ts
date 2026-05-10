@@ -16,6 +16,10 @@ type RawServer = {
   items?: RawEpisode[];
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -58,7 +62,7 @@ function normalizeServers(servers: RawServer[], sourceUrl: string): ImportedSour
     const sourceTitle = asString(server.server_name) ?? `Source ${index + 1}`;
     const sourceKey = sourceTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `source-${index + 1}`;
     const rows = Array.isArray(server.server_data) ? server.server_data : Array.isArray(server.items) ? server.items : [];
-    const preferredLinkType: LinkType = rows.some((row) => asString(row.link_m3u8) ?? asString(row.m3u8)) ? "m3u8" : "embed";
+    const preferredLinkType: LinkType = "embed";
 
     return {
       sourceKey,
@@ -82,8 +86,9 @@ export function normalizeImportedMovie(data: unknown, sourceUrl: string): Import
 
   const rawServers = Array.isArray(item.episodes) ? (item.episodes as RawServer[]) : [];
   const responseData = record.data as Record<string, unknown> | undefined;
+  const seoSchema = asRecord(asRecord(asRecord(responseData?.seoOnPage)?.seoSchema));
   const cdn = asString(responseData?.APP_DOMAIN_CDN_IMAGE) ?? asString(record.APP_DOMAIN_CDN_IMAGE);
-  const imageUrl = absoluteImage(asString(item.thumb_url), cdn);
+  const imageUrl = asString(seoSchema?.image) ?? absoluteImage(asString(item.thumb_url), cdn);
   const posterUrl = absoluteImage(asString(item.poster_url), cdn);
 
   return {

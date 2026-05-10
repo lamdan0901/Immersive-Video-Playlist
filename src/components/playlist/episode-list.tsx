@@ -9,40 +9,26 @@ type Episode = {
 export function EpisodeList({
   episodes,
   currentEpisodeIndex,
-  onSelect,
-  viewMode,
-  onViewModeChange
+  onSelect
 }: {
   episodes: Episode[];
   currentEpisodeIndex: number;
   onSelect: (index: number) => void;
-  viewMode: "list" | "grid";
-  onViewModeChange: (mode: "list" | "grid") => void;
 }) {
+  const isCompactGrid = episodes.length > 20;
+
   return (
     <section className="playlist-detail-panel playlist-detail-episode-panel" aria-label="Episode list">
       <div className="playlist-detail-panel-header">
         <span>Episodes</span>
-        <div className="playlist-detail-segmented-control" role="group" aria-label="Episode view mode">
-          <button
-            type="button"
-            className="playlist-detail-segment"
-            aria-pressed={viewMode === "list"}
-            onClick={() => onViewModeChange("list")}
-          >
-            List
-          </button>
-          <button
-            type="button"
-            className="playlist-detail-segment"
-            aria-pressed={viewMode === "grid"}
-            onClick={() => onViewModeChange("grid")}
-          >
-            Grid
-          </button>
-        </div>
       </div>
-      <div className={`playlist-detail-episode-list playlist-detail-episode-list-${viewMode}`}>
+      <div
+        className={[
+          "playlist-detail-episode-list",
+          "playlist-detail-episode-list-grid",
+          isCompactGrid ? "playlist-detail-episode-list-grid-compact" : ""
+        ].filter(Boolean).join(" ")}
+      >
         {episodes.map((episode, index) => (
           <button
             key={episode.episodeKey}

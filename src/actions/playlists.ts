@@ -28,16 +28,19 @@ export async function updatePlaylistTitle(input: {
   adminSecret: string;
   playlistId: string;
   title: string;
+  skipStartSeconds: number;
   version: number;
 }): Promise<ActionResult> {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
   const nextTitle = input.title.trim() || "Untitled Playlist";
+  const nextSkipStartSeconds = Math.max(0, Math.floor(input.skipStartSeconds));
   const result = await db
     .update(playlists)
     .set({
       title: nextTitle,
+      metadata: sql<Record<string, unknown>>`jsonb_set(coalesce(${playlists.metadata}, '{}'::jsonb), '{skipStartSeconds}', to_jsonb(${nextSkipStartSeconds}), true)`,
       version: input.version + 1,
       updatedAt: new Date()
     })
@@ -48,9 +51,39 @@ export async function updatePlaylistTitle(input: {
     return conflict("This playlist changed. Refresh before saving.");
   }
 
-  await logMutation("playlist.update", `Updated playlist title to ${nextTitle}`, input.playlistId);
+  await logMutation("playlist.update", `Updated playlist settings for ${nextTitle}`, input.playlistId);
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
+  return { ok: true, data: undefined };
+}
+
+export async function softDeletePlaylist(input: {
+  adminSecret: string;
+  playlistId: string;
+  version: number;
+}): Promise<ActionResult> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const result = await db
+    .update(playlists)
+    .set({
+      deletedAt: new Date(),
+      purgeAfter: thirtyDaysFromNow,
+      version: input.version + 1,
+      updatedAt: new Date()
+    })
+    .where(and(eq(playlists.id, input.playlistId), eq(playlists.version, input.version), isNull(playlists.deletedAt)))
+    .returning({ id: playlists.id });
+
+  if (result.length === 0) {
+    return conflict("This playlist changed. Refresh before deleting it.");
+  }
+
+  await logMutation("playlist.delete", "Moved playlist to trash", input.playlistId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidatePath("/trash");
   return { ok: true, data: undefined };
 }
 

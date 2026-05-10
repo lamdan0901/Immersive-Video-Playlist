@@ -1,5 +1,6 @@
 "use client";
 
+import { House, List, Pencil, StepForward } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
@@ -7,7 +8,6 @@ import { savePlaybackProgress } from "@/actions/playback";
 import { EditorDrawer } from "./editor-drawer";
 import { EpisodeList } from "./episode-list";
 import { PlayerStage } from "./player-stage";
-import { SourceSwitcher } from "./source-switcher";
 import { Toast } from "./toast";
 
 type Episode = {
@@ -31,6 +31,7 @@ type Source = {
 type PlaylistDetail = {
   id: string;
   title: string;
+  skipStartSeconds: number;
   version: number;
   sources: Source[];
 };
@@ -47,11 +48,11 @@ export function PlaylistDetailClient({
   const [currentSourceId, setCurrentSourceId] = useState<string | null>(initialPlayback.sourceId ?? playlist.sources[0]?.id ?? null);
   const [currentEpisodeIndex, setCurrentEpisodeIndex] = useState(initialPlayback.episodeIndex);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [episodeViewMode, setEpisodeViewMode] = useState<"list" | "grid">("list");
   const [toast, setToast] = useState<string | null>(null);
 
   const currentSource = playlist.sources.find((source) => source.id === currentSourceId) ?? playlist.sources[0] ?? null;
   const currentEpisode = currentSource?.episodes[currentEpisodeIndex] ?? null;
+  const hasNextEpisode = currentSource ? currentEpisodeIndex < currentSource.episodes.length - 1 : false;
   const episodePlaybackKey = currentSource && currentEpisode ? `${currentSource.id}:${currentEpisode.episodeKey}` : null;
   const optimisticProgressRef = useRef<Record<string, number>>({});
   const optimisticSeconds = episodePlaybackKey ? optimisticProgressRef.current[episodePlaybackKey] : undefined;
@@ -86,6 +87,11 @@ export function PlaylistDetailClient({
     router.push(`/playlist/${playlist.id}?source=${currentSource.id}&episode=${index}`);
   }, [currentSource, playlist.id, router]);
 
+  const goToNextEpisode = useCallback(() => {
+    if (!hasNextEpisode) return;
+    selectEpisode(currentEpisodeIndex + 1);
+  }, [currentEpisodeIndex, hasNextEpisode, selectEpisode]);
+
   const switchSource = (nextSourceId: string) => {
     const nextSource = playlist.sources.find((source) => source.id === nextSourceId);
     if (!nextSource) return;
@@ -100,14 +106,29 @@ export function PlaylistDetailClient({
     router.push(`/playlist/${playlist.id}?source=${nextSource.id}&episode=${currentEpisodeIndex}`);
   };
 
+  const closeEditor = useCallback(() => {
+    setIsEditorOpen(false);
+  }, []);
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.code === "Escape" && isEditorOpen) {
+      event.preventDefault();
+      closeEditor();
+      return;
+    }
+
     const target = event.target as HTMLElement;
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
 
-    if (event.ctrlKey && event.altKey && event.code === "KeyX") {
-      if (!currentSource) return;
+    if (event.ctrlKey && !event.altKey && event.code === "KeyE") {
       event.preventDefault();
-      selectEpisode(Math.min(currentEpisodeIndex + 1, currentSource.episodes.length - 1));
+      setIsEditorOpen((open) => !open);
+      return;
+    }
+
+    if (event.ctrlKey && !event.altKey && event.code === "KeyX") {
+      event.preventDefault();
+      goToNextEpisode();
     }
   };
 
@@ -121,62 +142,112 @@ export function PlaylistDetailClient({
       className="fullscreen-wrapper"
       tabIndex={-1}
       onKeyDown={onKeyDown}
-      onMouseDown={() => wrapperRef.current?.focus()}
+      onMouseDown={(event) => {
+        wrapperRef.current?.focus();
+        if (isEditorOpen && event.target === event.currentTarget) {
+          closeEditor();
+        }
+      }}
       aria-label="Playlist detail"
     >
       <div className="counter-overlay">
-        {playlist.title} · {currentSource ? `${currentEpisodeIndex + 1}/${currentSource.episodes.length}` : "0/0"}
+        <button
+          type="button"
+          className="counter-overlay-btn"
+          aria-label="Back to home"
+          onClick={() => router.push("/")}
+        >
+          <House aria-hidden="true" size={16} strokeWidth={2.2} />
+        </button>
+        <span>{currentSource ? `${currentEpisodeIndex + 1}/${currentSource.episodes.length}` : "0/0"}</span>
       </div>
 
       <PlayerStage
         episode={currentEpisodeForPlayer}
         sourceId={currentSource?.id ?? null}
         preferredLinkType={currentSource?.preferredLinkType ?? "embed"}
+        skipStartSeconds={playlist.skipStartSeconds}
         onStopWatching={onStopWatching}
       />
 
       <div className="action-hover-zone">
+        {hasNextEpisode ? (
+          <button
+            type="button"
+            className="action-btn action-btn-next"
+            aria-label="Next episode"
+            onClick={goToNextEpisode}
+          >
+            <StepForward aria-hidden="true" size={18} strokeWidth={2.2} />
+          </button>
+        ) : null}
         <button
           type="button"
-          className="action-btn"
+          className="action-btn action-btn-edit"
           aria-label={isEditorOpen ? "Close editor" : "Open editor"}
           onClick={() => setIsEditorOpen((open) => !open)}
         >
-          {isEditorOpen ? "Close" : "Edit"}
+          <Pencil aria-hidden="true" size={18} strokeWidth={2.2} />
         </button>
-      </div>
-
-      <div className="playlist-detail-dock">
-        <SourceSwitcher
-          sources={playlist.sources}
-          currentSourceId={currentSource?.id ?? null}
-          onSwitch={switchSource}
-        />
-        <EpisodeList
-          episodes={currentSource?.episodes ?? []}
-          currentEpisodeIndex={currentEpisodeIndex}
-          onSelect={selectEpisode}
-          viewMode={episodeViewMode}
-          onViewModeChange={setEpisodeViewMode}
-        />
-        {isEditorOpen ? (
-          <EditorDrawer
-            key={`${playlist.id}:${playlist.version}:${currentSource?.id ?? "no-source"}:${currentSource?.version ?? 0}`}
-            playlist={{
-              id: playlist.id,
-              title: playlist.title,
-              version: playlist.version
-            }}
-            source={currentSource ? {
-              id: currentSource.id,
-              sourceTitle: currentSource.sourceTitle,
-              sourceUrl: currentSource.sourceUrl,
-              preferredLinkType: currentSource.preferredLinkType,
-              version: currentSource.version
-            } : null}
-          />
+        {playlist.sources.length > 0 ? (
+          <div className="action-source-control">
+            <button
+              type="button"
+              className="action-source-trigger"
+              aria-label="Select source"
+            >
+              <List aria-hidden="true" size={18} strokeWidth={2.2} />
+            </button>
+            <div className="action-source-select-panel" aria-label="Sources">
+              <span>Sources</span>
+              <div className="action-source-list">
+                {playlist.sources.map((source) => (
+                  <button
+                    key={source.id}
+                    type="button"
+                    className="action-source-item"
+                    aria-pressed={source.id === currentSource?.id}
+                    onClick={() => switchSource(source.id)}
+                  >
+                    <span className="action-source-item-title">{source.sourceTitle}</span>
+                    <span className="action-source-item-meta">
+                      {source.episodes.length} ep · {source.preferredLinkType.toUpperCase()}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
+
+      {isEditorOpen ? (
+        <div className="playlist-detail-editor-overlay" onMouseDown={closeEditor}>
+          <div className="playlist-detail-dock" onMouseDown={(event) => event.stopPropagation()}>
+            <EpisodeList
+              episodes={currentSource?.episodes ?? []}
+              currentEpisodeIndex={currentEpisodeIndex}
+              onSelect={selectEpisode}
+            />
+            <EditorDrawer
+              key={`${playlist.id}:${playlist.version}:${currentSource?.id ?? "no-source"}:${currentSource?.version ?? 0}`}
+              playlist={{
+                id: playlist.id,
+                title: playlist.title,
+                skipStartSeconds: playlist.skipStartSeconds,
+                version: playlist.version
+              }}
+              source={currentSource ? {
+                id: currentSource.id,
+                sourceTitle: currentSource.sourceTitle,
+                sourceUrl: currentSource.sourceUrl,
+                preferredLinkType: currentSource.preferredLinkType,
+                version: currentSource.version
+              } : null}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <Toast message={toast} />
     </div>

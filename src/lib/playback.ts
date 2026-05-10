@@ -4,6 +4,12 @@ type PlaybackSource = {
   episodes: { episodeKey: string }[];
 };
 
+function parseNonNegativeInteger(value: unknown) {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.floor(numeric));
+}
+
 export function resolveInitialPlayback(
   sources: PlaybackSource[],
   query: { sourceId: string | null; episodeIndex: string | null }
@@ -22,4 +28,12 @@ export function resolveInitialPlayback(
 
 export function shouldSavePlayback(nextSeconds: number, previousSeconds: number) {
   return Math.floor(nextSeconds) !== Math.floor(previousSeconds);
+}
+
+export function resolveSkipStartSeconds(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object" || !("skipStartSeconds" in metadata)) {
+    return 0;
+  }
+
+  return parseNonNegativeInteger(metadata.skipStartSeconds);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { refreshSource } from "@/actions/import";
 import {
   createBlankSource,
@@ -15,6 +15,7 @@ type EditorDrawerProps = {
   playlist: {
     id: string;
     title: string;
+    skipStartSeconds: number;
     version: number;
   };
   source: {
@@ -31,11 +32,20 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   const initialAdvancedJson = JSON.stringify({ playlist, source }, null, 2);
   const [isPending, startTransition] = useTransition();
   const [playlistTitle, setPlaylistTitle] = useState(playlist.title);
+  const [skipStartMinutes, setSkipStartMinutes] = useState(String(Math.floor(playlist.skipStartSeconds / 60)));
+  const [skipStartSeconds, setSkipStartSeconds] = useState(String(playlist.skipStartSeconds % 60).padStart(2, "0"));
   const [sourceTitle, setSourceTitle] = useState(source?.sourceTitle ?? "");
   const [sourceUrl, setSourceUrl] = useState(source?.sourceUrl ?? "");
   const [preferredLinkType, setPreferredLinkType] = useState<LinkType>(source?.preferredLinkType ?? "embed");
   const [advancedJson, setAdvancedJson] = useState(initialAdvancedJson);
   const [status, setStatus] = useState<string | null>(null);
+  const skipStartSecondsRef = useRef<HTMLInputElement>(null);
+
+  function applySkipStartValue(totalSeconds: number) {
+    const normalizedSeconds = Math.max(0, Math.floor(totalSeconds));
+    setSkipStartMinutes(String(Math.floor(normalizedSeconds / 60)));
+    setSkipStartSeconds(String(normalizedSeconds % 60).padStart(2, "0"));
+  }
 
   function runWithAdminSecret(action: (adminSecret: string) => Promise<void>) {
     const adminSecret = window.localStorage.getItem("adminSecret");
@@ -52,11 +62,26 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   async function handleSave(adminSecret: string) {
     setStatus(null);
 
-    if (playlistTitle.trim() !== playlist.title) {
+    const parsedSkipStartMinutes = Number(skipStartMinutes);
+    const parsedSkipStartSeconds = Number(skipStartSeconds);
+    if (!Number.isFinite(parsedSkipStartMinutes) || parsedSkipStartMinutes < 0) {
+      setStatus("Skip start must be a non-negative number.");
+      return;
+    }
+
+    if (!Number.isFinite(parsedSkipStartSeconds) || parsedSkipStartSeconds < 0 || parsedSkipStartSeconds > 59) {
+      setStatus("Skip start seconds must be between 0 and 59.");
+      return;
+    }
+
+    const nextSkipStartSeconds = Math.floor(parsedSkipStartMinutes) * 60 + Math.floor(parsedSkipStartSeconds);
+
+    if (playlistTitle.trim() !== playlist.title || nextSkipStartSeconds !== playlist.skipStartSeconds) {
       const playlistResult = await updatePlaylistTitle({
         adminSecret,
         playlistId: playlist.id,
         title: playlistTitle,
+        skipStartSeconds: nextSkipStartSeconds,
         version: playlist.version
       });
 
@@ -152,7 +177,7 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   function handleApplyJson() {
     try {
       const parsed = JSON.parse(advancedJson) as {
-        playlist?: { title?: unknown };
+        playlist?: { title?: unknown; skipStartSeconds?: unknown };
         source?: {
           sourceTitle?: unknown;
           sourceUrl?: unknown;
@@ -162,6 +187,13 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
 
       if (typeof parsed.playlist?.title === "string") {
         setPlaylistTitle(parsed.playlist.title);
+      }
+
+      if (parsed.playlist?.skipStartSeconds != null) {
+        const parsedSkipStartValue = Number(parsed.playlist.skipStartSeconds);
+        if (Number.isFinite(parsedSkipStartValue) && parsedSkipStartValue >= 0) {
+          applySkipStartValue(parsedSkipStartValue);
+        }
       }
 
       if (parsed.source && typeof parsed.source === "object") {
@@ -184,6 +216,25 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
     }
   }
 
+  function handleSkipStartMinutesChange(nextValue: string) {
+    const digitsOnly = nextValue.replace(/\D/g, "").slice(0, 1);
+    setSkipStartMinutes(digitsOnly);
+
+    if (digitsOnly.length === 1) {
+      skipStartSecondsRef.current?.focus();
+      skipStartSecondsRef.current?.select();
+    }
+  }
+
+  function handleSkipStartSecondsChange(nextValue: string) {
+    const digitsOnly = nextValue.replace(/\D/g, "").slice(0, 2);
+    setSkipStartSeconds(digitsOnly);
+  }
+
+  function handleSelectAllOnFocus(event: React.FocusEvent<HTMLInputElement>) {
+    event.target.select();
+  }
+
   return (
     <section className="playlist-detail-panel playlist-detail-source-panel" aria-label="Editor drawer">
       <div className="playlist-detail-panel-header">
@@ -191,68 +242,98 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
         {isPending ? <span className="playlist-detail-chip-meta">Working...</span> : null}
       </div>
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <label className="admin-unlock-field">
-          <span>Playlist title</span>
-          <input value={playlistTitle} onChange={(event) => setPlaylistTitle(event.target.value)} />
-        </label>
+      <div className="playlist-editor-form">
+        <div className="playlist-editor-row playlist-editor-row-3up">
+          <label className="admin-unlock-field playlist-editor-field">
+            <span>Playlist title</span>
+            <input value={playlistTitle} onChange={(event) => setPlaylistTitle(event.target.value)} />
+          </label>
 
-        <label className="admin-unlock-field">
-          <span>Source title</span>
-          <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} />
-        </label>
+          <div className="admin-unlock-field playlist-editor-field">
+            <span>Skip start (m:ss)</span>
+            <div className="playlist-editor-skip-group">
+              <input
+                aria-label="Skip start minutes"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={skipStartMinutes}
+                onChange={(event) => handleSkipStartMinutesChange(event.target.value)}
+                onFocus={handleSelectAllOnFocus}
+              />
+              <span aria-hidden="true" className="playlist-editor-skip-separator">:</span>
+              <input
+                ref={skipStartSecondsRef}
+                aria-label="Skip start seconds"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={skipStartSeconds}
+                onChange={(event) => handleSkipStartSecondsChange(event.target.value)}
+                onFocus={handleSelectAllOnFocus}
+              />
+            </div>
+          </div>
 
-        <label className="admin-unlock-field">
-          <span>Source URL</span>
-          <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
-        </label>
+          <label className="admin-unlock-field playlist-editor-field">
+            <span>Preferred link type</span>
+            <select
+              value={preferredLinkType}
+              onChange={(event) => setPreferredLinkType(event.target.value as LinkType)}
+              style={{
+                padding: "12px 14px",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: 8,
+                background: "rgba(255, 255, 255, 0.04)",
+                color: "var(--color-text)"
+              }}
+            >
+              <option value="embed">embed</option>
+              <option value="m3u8">m3u8</option>
+            </select>
+          </label>
+        </div>
 
-        <label className="admin-unlock-field">
-          <span>Preferred link type</span>
-          <select
-            value={preferredLinkType}
-            onChange={(event) => setPreferredLinkType(event.target.value as LinkType)}
-            style={{
-              padding: "12px 14px",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              borderRadius: 8,
-              background: "rgba(255, 255, 255, 0.04)",
-              color: "var(--color-text)"
-            }}
-          >
-            <option value="embed">embed</option>
-            <option value="m3u8">m3u8</option>
-          </select>
-        </label>
+        <p className="playlist-detail-chip-meta playlist-editor-note">
+          Skip start (m:ss). Embedded iframe players may ignore it unless the provider exposes seeking controls.
+        </p>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleCreate)}>
-            Create New Source
-          </button>
-          <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleRefresh)}>
-            Refresh Source
-          </button>
-          <button type="button" className="accent-button" disabled={isPending} onClick={() => runWithAdminSecret(handleSave)}>
-            Save
-          </button>
-          <button type="button" className="ghost-button" disabled={isPending || !source} onClick={() => runWithAdminSecret(handleDelete)}>
-            Delete Source
-          </button>
+        <div className="playlist-editor-row playlist-editor-row-source-actions">
+          <label className="admin-unlock-field playlist-editor-field">
+            <span>Source title</span>
+            <input value={sourceTitle} onChange={(event) => setSourceTitle(event.target.value)} />
+          </label>
+
+          <label className="admin-unlock-field playlist-editor-field">
+            <span>Source URL</span>
+            <input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
+          </label>
+
+          <div className="playlist-editor-row playlist-editor-row-button-grid">
+            <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleCreate)}>
+              Create New Source
+            </button>
+            <button type="button" className="ghost-button" disabled={isPending} onClick={() => runWithAdminSecret(handleRefresh)}>
+              Refresh Source
+            </button>
+            <button type="button" className="accent-button" disabled={isPending} onClick={() => runWithAdminSecret(handleSave)}>
+              Save
+            </button>
+            <button type="button" className="ghost-button" disabled={isPending || !source} onClick={() => runWithAdminSecret(handleDelete)}>
+              Delete Source
+            </button>
+          </div>
         </div>
 
         {status ? <p className="playlist-detail-chip-meta" role="status">{status}</p> : null}
 
-        <details>
+        <details className="playlist-editor-advanced-row">
           <summary>Advanced JSON</summary>
-          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <button type="button" className="ghost-button" disabled={isPending} onClick={handleApplyJson}>
-                Apply JSON
-              </button>
-              <button type="button" className="ghost-button" disabled={isPending} onClick={() => setAdvancedJson(initialAdvancedJson)}>
-                Reset JSON
-              </button>
-            </div>
+          <div className="playlist-editor-row playlist-editor-row-actions" style={{ marginTop: 12 }}>
+            <button type="button" className="ghost-button" disabled={isPending} onClick={handleApplyJson}>
+              Apply JSON
+            </button>
+            <button type="button" className="ghost-button" disabled={isPending} onClick={() => setAdvancedJson(initialAdvancedJson)}>
+              Reset JSON
+            </button>
           </div>
           <textarea
             rows={12}

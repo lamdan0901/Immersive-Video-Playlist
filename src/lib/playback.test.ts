@@ -1,4 +1,4 @@
-import { resolveInitialPlayback, shouldSavePlayback } from "./playback";
+import { resolveInitialPlayback, resolveSkipStartSeconds, shouldSavePlayback } from "./playback";
 
 const source = {
   id: "source-1",
@@ -26,4 +26,12 @@ it("falls back to source last played episode", () => {
 it("does not save unchanged timestamps", () => {
   expect(shouldSavePlayback(30, 30)).toBe(false);
   expect(shouldSavePlayback(31, 30)).toBe(true);
+});
+
+it("extracts a non-negative integer playlist skip start from metadata", () => {
+  expect(resolveSkipStartSeconds({ skipStartSeconds: 27.8 })).toBe(27);
+  expect(resolveSkipStartSeconds({ skipStartSeconds: "12" })).toBe(12);
+  expect(resolveSkipStartSeconds({ skipStartSeconds: -4 })).toBe(0);
+  expect(resolveSkipStartSeconds({})).toBe(0);
+  expect(resolveSkipStartSeconds(null)).toBe(0);
 });

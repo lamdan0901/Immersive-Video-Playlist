@@ -6,6 +6,7 @@ import { db } from "@/db/client";
 import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import { normalizeImportedMovie } from "@/lib/importers";
+import { pickDerivedImage } from "@/lib/playlist-artwork";
 import { canonicalHash, matchImportedSource, preserveEpisodeIdentity, reconcileEpisodes } from "@/lib/source-refresh";
 import type { ImportedSource } from "@/lib/types";
 import { logMutation } from "./playlists";
@@ -20,10 +21,6 @@ function asErrorMessage(error: unknown): string {
   }
 
   return "Import failed";
-}
-
-function pickDerivedImage(source: { posterUrl: string | null; imageUrl: string | null }) {
-  return source.posterUrl ?? source.imageUrl;
 }
 
 async function fetchSourceJson(url: string) {

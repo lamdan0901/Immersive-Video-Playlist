@@ -19,11 +19,13 @@ export function PlayerStage({
   episode,
   sourceId,
   preferredLinkType,
+  skipStartSeconds,
   onStopWatching
 }: {
   episode: Episode | null;
   sourceId: string | null;
   preferredLinkType: "m3u8" | "embed";
+  skipStartSeconds: number;
   onStopWatching: (input: { sourceId: string; episodeKey: string; seconds: number }) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,7 +48,8 @@ export function PlayerStage({
     }
 
     const onLoadedMetadata = () => {
-      if (resumeSeconds) video.currentTime = resumeSeconds;
+      const startSeconds = Math.max(resumeSeconds, skipStartSeconds);
+      if (startSeconds > 0) video.currentTime = startSeconds;
       video.play().catch(() => undefined);
     };
 

@@ -6,9 +6,10 @@ import { validateAdminSecret } from "@/actions/admin";
 type AdminUnlockModalProps = {
   open: boolean;
   onClose: () => void;
+  onUnlocked?: () => void;
 };
 
-export function AdminUnlockModal({ open, onClose }: AdminUnlockModalProps) {
+export function AdminUnlockModal({ open, onClose, onUnlocked }: AdminUnlockModalProps) {
   const [secret, setSecret] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +32,7 @@ export function AdminUnlockModal({ open, onClose }: AdminUnlockModalProps) {
     localStorage.setItem("adminSecret", secret);
     setSecret("");
     setSubmitting(false);
+    onUnlocked?.();
     onClose();
   }
 

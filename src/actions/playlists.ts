@@ -89,6 +89,46 @@ export async function softDeletePlaylist(input: {
   return { ok: true, data: undefined };
 }
 
+export async function togglePinPlaylist(input: {
+  adminSecret: string;
+  playlistId: string;
+  version: number;
+  pinned: boolean;
+}): Promise<ActionResult> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  let nextPinnedOrder = 0;
+  if (input.pinned) {
+    const maxResult = await db
+      .select({ maxOrder: sql<number>`coalesce(max(${playlists.pinnedOrder}), -1)` })
+      .from(playlists)
+      .where(and(eq(playlists.pinned, true), isNull(playlists.deletedAt)));
+    nextPinnedOrder = (maxResult[0]?.maxOrder ?? -1) + 1;
+  }
+
+  const result = await db
+    .update(playlists)
+    .set({
+      pinned: input.pinned,
+      pinnedOrder: nextPinnedOrder,
+      version: input.version + 1,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(playlists.id, input.playlistId), eq(playlists.version, input.version), isNull(playlists.deletedAt)))
+    .returning({ id: playlists.id });
+
+  if (result.length === 0) {
+    return conflict("This playlist changed. Refresh before updating.");
+  }
+
+  await logMutation("playlist.update", `${input.pinned ? "Pinned" : "Unpinned"} playlist`, input.playlistId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidateTag("playlists");
+  return { ok: true, data: undefined };
+}
+
 export async function updateSource(input: {
   adminSecret: string;
   playlistId: string;

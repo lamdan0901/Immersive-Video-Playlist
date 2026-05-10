@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { softDeletePlaylist } from "@/actions/playlists";
+import { softDeletePlaylist, togglePinPlaylist } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
 
 function formatUtcDate(value: string) {
@@ -20,6 +20,7 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -71,6 +72,33 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     router.refresh();
   }
 
+  async function handlePinClick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const adminSecret = localStorage.getItem("adminSecret");
+    if (!adminSecret) {
+      throw new Error("Admin unlock required");
+    }
+
+    setIsPinning(true);
+
+    const result = await togglePinPlaylist({
+      adminSecret,
+      playlistId: playlist.id,
+      version: playlist.version,
+      pinned: !playlist.pinned,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    setIsPinning(false);
+    setMenuOpen(false);
+    router.refresh();
+  }
+
   return (
     <div
       ref={menuRef}
@@ -98,9 +126,6 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
         <div className="playlist-card-body">
           <div className="playlist-card-heading">
             <h2>{playlist.title}</h2>
-            {playlist.pinned ? (
-              <span className="playlist-card-pin">Pinned</span>
-            ) : null}
           </div>
           <p className="playlist-card-sources">
             {playlist.activeSourceTotalEpisodes > 0
@@ -118,6 +143,20 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           role="menu"
           aria-label={`${playlist.title} actions`}
         >
+          <button
+            type="button"
+            className="playlist-card-menu-pin"
+            onClick={handlePinClick}
+            disabled={isPinning}
+          >
+            {isPinning
+              ? playlist.pinned
+                ? "Unpinning..."
+                : "Pinning..."
+              : playlist.pinned
+                ? "Unpin"
+                : "Pin"}
+          </button>
           <button
             type="button"
             className="playlist-card-menu-delete"

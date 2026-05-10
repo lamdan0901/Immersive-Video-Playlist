@@ -1,3 +1,4 @@
+import { autoRefreshPlaylist } from "@/actions/import";
 import { getPlaylistDetail } from "@/db/queries/playlist";
 import { getPlaylistSummaries } from "@/db/queries/home";
 import {
@@ -15,6 +16,7 @@ export default async function PlaylistDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
+  await autoRefreshPlaylist(id);
   const [playlist, allPlaylists] = await Promise.all([
     getPlaylistDetail(id),
     getPlaylistSummaries(),

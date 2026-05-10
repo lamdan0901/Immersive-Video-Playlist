@@ -64,6 +64,7 @@ export const sources = pgTable("sources", {
   lastPlayedSeconds: integer("last_played_seconds").notNull().default(0),
   lastPlayedAt: timestamp("last_played_at", { withTimezone: true }),
   importError: text("import_error"),
+  lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
   version: integer("version").notNull().default(1),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

@@ -3,27 +3,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlaylistHomeClient } from "./playlist-home-client";
 
 const refreshMock = vi.fn();
-const { createPlaylistFromUrlMock, softDeletePlaylistMock } = vi.hoisted(() => ({
-  createPlaylistFromUrlMock: vi.fn(),
-  softDeletePlaylistMock: vi.fn()
-}));
+const { createPlaylistFromUrlMock, softDeletePlaylistMock } = vi.hoisted(
+  () => ({
+    createPlaylistFromUrlMock: vi.fn(),
+    softDeletePlaylistMock: vi.fn(),
+  }),
+);
 
 vi.mock("@/actions/import", () => ({
-  createPlaylistFromUrl: createPlaylistFromUrlMock
+  createPlaylistFromUrl: createPlaylistFromUrlMock,
 }));
 
 vi.mock("@/actions/playlists", () => ({
-  softDeletePlaylist: softDeletePlaylistMock
+  softDeletePlaylist: softDeletePlaylistMock,
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    refresh: refreshMock
-  })
+    refresh: refreshMock,
+  }),
 }));
 
 vi.mock("@/components/admin/admin-unlock-modal", () => ({
-  AdminUnlockModal: ({ open, onClose, onUnlocked }: { open: boolean; onClose: () => void; onUnlocked: () => void }) =>
+  AdminUnlockModal: ({
+    open,
+    onClose,
+    onUnlocked,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    onUnlocked: () => void;
+  }) =>
     open ? (
       <div role="dialog">
         <button
@@ -37,7 +47,7 @@ vi.mock("@/components/admin/admin-unlock-modal", () => ({
           Confirm unlock
         </button>
       </div>
-    ) : null
+    ) : null,
 }));
 
 const playlists = [
@@ -51,12 +61,15 @@ const playlists = [
     version: 3,
     lastPlayedAt: null,
     updatedAt: "2026-05-09T08:15:00.000Z",
+    activeSourceTitle: null,
+    activeSourceLastPlayedEpisodeIndex: 0,
+    activeSourceTotalEpisodes: 0,
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #14532d, #1d4ed8)",
-      initials: "FC"
-    }
-  }
+      initials: "FC",
+    },
+  },
 ];
 
 describe("PlaylistHomeClient", () => {
@@ -69,12 +82,12 @@ describe("PlaylistHomeClient", () => {
       ok: true,
       data: {
         playlistId: "playlist-2",
-        message: "Imported playlist"
-      }
+        message: "Imported playlist",
+      },
     });
     softDeletePlaylistMock.mockResolvedValue({
       ok: true,
-      data: undefined
+      data: undefined,
     });
   });
 
@@ -91,7 +104,9 @@ describe("PlaylistHomeClient", () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Unlock" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Unlock" }),
+      ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
   });
@@ -103,7 +118,9 @@ describe("PlaylistHomeClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm unlock" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Unlock" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Unlock" }),
+      ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
   });
@@ -114,26 +131,30 @@ describe("PlaylistHomeClient", () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Add playlist" }),
+      ).toBeEnabled();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
     fireEvent.change(screen.getByLabelText("Playlist source URL"), {
       target: {
-        value: "https://ophim1.com/v1/api/phim/fate-chooses-you"
-      }
+        value: "https://ophim1.com/v1/api/phim/fate-chooses-you",
+      },
     });
     fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
 
     await waitFor(() => {
       expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
         adminSecret: "top-secret",
-        sourceUrl: "https://ophim1.com/v1/api/phim/fate-chooses-you"
+        sourceUrl: "https://ophim1.com/v1/api/phim/fate-chooses-you",
       });
     });
 
     expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(screen.queryByLabelText("Playlist source URL")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Playlist source URL"),
+    ).not.toBeInTheDocument();
   });
 
   it("autofocuses the playlist source URL input when the inline form opens", async () => {
@@ -142,7 +163,9 @@ describe("PlaylistHomeClient", () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "Add playlist" }),
+      ).toBeEnabled();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
@@ -155,14 +178,16 @@ describe("PlaylistHomeClient", () => {
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    fireEvent.contextMenu(screen.getByRole("link", { name: /fate chooses you/i }));
+    fireEvent.contextMenu(
+      screen.getByRole("link", { name: /fate chooses you/i }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
       expect(softDeletePlaylistMock).toHaveBeenCalledWith({
         adminSecret: "top-secret",
         playlistId: "playlist-1",
-        version: 3
+        version: 3,
       });
     });
 

@@ -60,7 +60,7 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     const result = await softDeletePlaylist({
       adminSecret,
       playlistId: playlist.id,
-      version: playlist.version
+      version: playlist.version,
     });
 
     if (!result.ok) {
@@ -83,24 +83,41 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
       <Link href={`/playlist/${playlist.id}`} className="playlist-card">
         <div
           className={`playlist-card-banner playlist-card-banner-${playlist.banner.type}`}
-          style={playlist.banner.type === "image" ? { backgroundImage: `url(${playlist.banner.value})` } : { backgroundImage: playlist.banner.value }}
+          style={
+            playlist.banner.type === "image"
+              ? { backgroundImage: `url(${playlist.banner.value})` }
+              : { backgroundImage: playlist.banner.value }
+          }
         >
-          {playlist.banner.type === "gradient" ? <span className="playlist-card-initials">{playlist.banner.initials}</span> : null}
+          {playlist.banner.type === "gradient" ? (
+            <span className="playlist-card-initials">
+              {playlist.banner.initials}
+            </span>
+          ) : null}
         </div>
         <div className="playlist-card-body">
           <div className="playlist-card-heading">
             <h2>{playlist.title}</h2>
-            {playlist.pinned ? <span className="playlist-card-pin">Pinned</span> : null}
+            {playlist.pinned ? (
+              <span className="playlist-card-pin">Pinned</span>
+            ) : null}
           </div>
-          <p className="playlist-card-sources">{playlist.sourceTitles.join(" · ") || "No sources yet"}</p>
+          <p className="playlist-card-sources">
+            {playlist.activeSourceTotalEpisodes > 0
+              ? `${playlist.activeSourceTitle} · Ep ${playlist.activeSourceLastPlayedEpisodeIndex + 1} / ${playlist.activeSourceTotalEpisodes}`
+              : (playlist.activeSourceTitle ?? "No sources yet")}
+          </p>
           <p className="playlist-card-meta">
             <span>{formatTime(playlist.lastPlayedAt)}</span>
-            <span>Updated {formatUtcDate(playlist.updatedAt)}</span>
           </p>
         </div>
       </Link>
       {menuOpen ? (
-        <div className="playlist-card-menu" role="menu" aria-label={`${playlist.title} actions`}>
+        <div
+          className="playlist-card-menu"
+          role="menu"
+          aria-label={`${playlist.title} actions`}
+        >
           <button
             type="button"
             className="playlist-card-menu-delete"

@@ -7,11 +7,11 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/test/setup.ts"],
     globals: true,
-    exclude: ["tests/e2e/**", "node_modules/**", ".git/**"]
+    exclude: ["tests/e2e/**", "node_modules/**", ".git/**", ".kilo/**"],
   },
   resolve: {
     alias: {
-      "@": new URL("./src", import.meta.url).pathname
-    }
-  }
+      "@": new URL("./src", import.meta.url).pathname,
+    },
+  },
 });

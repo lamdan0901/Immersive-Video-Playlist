@@ -90,7 +90,7 @@ export function PlaylistDetailClient({
         ? Math.max(0, Math.floor(input.seconds))
         : 0;
       const highestKnownSeconds =
-        optimisticProgressRef.current[playbackKey] ?? 0;
+        optimisticProgressRef.current[playbackKey] ?? -1;
       if (nextSeconds <= highestKnownSeconds) return;
       optimisticProgressRef.current[playbackKey] = nextSeconds;
 

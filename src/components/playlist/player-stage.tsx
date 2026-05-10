@@ -35,8 +35,16 @@ export function PlayerStage({
   const resumeSeconds = episode?.lastPlayedSeconds ?? 0;
 
   useEffect(() => {
+    if (!url || !episodeKey || !sourceId) return;
+
+    if (!useNative) {
+      // For iframes, we can't track progress, but we should record that this episode was started.
+      onStopWatching({ sourceId, episodeKey, seconds: resumeSeconds });
+      return;
+    }
+
     const video = videoRef.current;
-    if (!video || !url || !useNative || !episodeKey || !sourceId) return;
+    if (!video) return;
 
     let hls: Hls | null = null;
     if (Hls.isSupported()) {

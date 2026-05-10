@@ -6,15 +6,6 @@ import { useRouter } from "next/navigation";
 import { softDeletePlaylist } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
 
-function formatUtcDate(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-function formatTime(value: string | null) {
-  if (!value) return "Never played";
-  return `Last played ${formatUtcDate(value)}`;
-}
-
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -104,11 +95,8 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           </div>
           <p className="playlist-card-sources">
             {playlist.activeSourceTotalEpisodes > 0
-              ? `${playlist.activeSourceTitle} · Ep ${playlist.activeSourceLastPlayedEpisodeIndex + 1} / ${playlist.activeSourceTotalEpisodes}`
-              : (playlist.activeSourceTitle ?? "No sources yet")}
-          </p>
-          <p className="playlist-card-meta">
-            <span>{formatTime(playlist.lastPlayedAt)}</span>
+              ? `Ep ${playlist.activeSourceLastPlayedEpisodeIndex + 1} / ${playlist.activeSourceTotalEpisodes}`
+              : null}
           </p>
         </div>
       </Link>

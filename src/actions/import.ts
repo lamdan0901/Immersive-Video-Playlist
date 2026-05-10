@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import { normalizeImportedMovie } from "@/lib/importers";
-import { canonicalHash, reconcileEpisodes } from "@/lib/source-refresh";
+import { canonicalHash, matchImportedSource, reconcileEpisodes } from "@/lib/source-refresh";
 import type { ImportedSource } from "@/lib/types";
 import { logMutation } from "./playlists";
 
@@ -58,19 +58,6 @@ async function writeSnapshot(tx: DbTransaction, sourceId: string, importedSource
   if (staleIds.length > 0) {
     await tx.delete(sourceSnapshots).where(inArray(sourceSnapshots.id, staleIds));
   }
-}
-
-function getImportedSource(movieSources: ImportedSource[], existingSourceKey: string) {
-  const matchedSource = movieSources.find((source) => source.sourceKey === existingSourceKey);
-  if (matchedSource) {
-    return matchedSource;
-  }
-
-  if (movieSources.length === 1) {
-    return movieSources[0];
-  }
-
-  throw new Error(`Imported payload does not contain source ${existingSourceKey}`);
 }
 
 async function updateFailedImport(sourceId: string, sourceUrl: string, message: string) {
@@ -198,7 +185,9 @@ export async function refreshSource(input: {
   const sourceRows = await db
     .select({
       id: sources.id,
-      sourceKey: sources.sourceKey
+      sourceKey: sources.sourceKey,
+      sourceTitle: sources.sourceTitle,
+      sortOrder: sources.sortOrder
     })
     .from(sources)
     .where(and(eq(sources.id, input.sourceId), eq(sources.playlistId, input.playlistId), isNull(sources.deletedAt)));
@@ -209,12 +198,11 @@ export async function refreshSource(input: {
   }
 
   let importedSource: ImportedSource;
-  let importedMovie: ReturnType<typeof normalizeImportedMovie>;
 
   try {
     const importedJson = await fetchSourceJson(sourceUrl);
-    importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
-    importedSource = getImportedSource(importedMovie.sources, sourceRow.sourceKey);
+    const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
+    importedSource = matchImportedSource(sourceRow, importedMovie.sources);
   } catch (error) {
     const message = asErrorMessage(error);
     await updateFailedImport(input.sourceId, sourceUrl, message);
@@ -225,18 +213,6 @@ export async function refreshSource(input: {
   const now = new Date();
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(playlists)
-      .set({
-        title: importedMovie.title,
-        slug: importedMovie.slug,
-        derivedImageUrl: pickDerivedImage(importedMovie),
-        metadata: importedMovie.metadata,
-        updatedAt: now,
-        version: sql<number>`${playlists.version} + 1`
-      })
-      .where(and(eq(playlists.id, input.playlistId), isNull(playlists.deletedAt)));
-
     await tx
       .update(sources)
       .set({

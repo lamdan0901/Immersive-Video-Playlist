@@ -1,4 +1,4 @@
-import { canonicalHash, matchImportedSource, reconcileEpisodes } from "./source-refresh";
+import { canonicalHash, matchImportedSource, preserveEpisodeIdentity, reconcileEpisodes } from "./source-refresh";
 
 const existing = [
   { episodeKey: "ep-1", sortOrder: 0, deletedAt: null },
@@ -67,4 +67,28 @@ it("matches imported source by sort order when upstream title and key change", (
   );
 
   expect(result.sourceKey).toBe("renamed-vip");
+});
+
+it("preserves existing fallback episode keys across source rename", () => {
+  const preserved = preserveEpisodeIdentity(
+    [
+      { episodeKey: "old-source:1", title: "1", slug: null, filename: null, sortOrder: 0, deletedAt: null },
+      { episodeKey: "old-source:2", title: "2", slug: null, filename: null, sortOrder: 1, deletedAt: null }
+    ],
+    [
+      { episodeKey: "new-source:1", title: "1", slug: null, filename: null, embedUrl: "embed1", m3u8Url: null },
+      { episodeKey: "new-source:2", title: "2", slug: null, filename: null, embedUrl: "embed2", m3u8Url: null }
+    ]
+  );
+
+  const result = reconcileEpisodes(
+    [
+      { episodeKey: "old-source:1", sortOrder: 0, deletedAt: null },
+      { episodeKey: "old-source:2", sortOrder: 1, deletedAt: null }
+    ],
+    preserved
+  );
+
+  expect(preserved.map((episode) => episode.episodeKey)).toEqual(["old-source:1", "old-source:2"]);
+  expect(result.softDeletes).toEqual([]);
 });

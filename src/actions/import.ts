@@ -6,7 +6,7 @@ import { db } from "@/db/client";
 import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import { normalizeImportedMovie } from "@/lib/importers";
-import { canonicalHash, matchImportedSource, reconcileEpisodes } from "@/lib/source-refresh";
+import { canonicalHash, matchImportedSource, preserveEpisodeIdentity, reconcileEpisodes } from "@/lib/source-refresh";
 import type { ImportedSource } from "@/lib/types";
 import { logMutation } from "./playlists";
 
@@ -232,13 +232,17 @@ export async function refreshSource(input: {
     const existingEpisodes = await tx
       .select({
         episodeKey: episodes.episodeKey,
+        title: episodes.title,
+        slug: episodes.slug,
+        filename: episodes.filename,
         sortOrder: episodes.sortOrder,
         deletedAt: episodes.deletedAt
       })
       .from(episodes)
       .where(eq(episodes.sourceId, input.sourceId));
 
-    const result = reconcileEpisodes(existingEpisodes, importedSource.episodes);
+    const normalizedEpisodes = preserveEpisodeIdentity(existingEpisodes, importedSource.episodes);
+    const result = reconcileEpisodes(existingEpisodes, normalizedEpisodes);
 
     if (result.upserts.length > 0) {
       await tx

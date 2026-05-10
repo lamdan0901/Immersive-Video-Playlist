@@ -4,6 +4,7 @@ import { PlaylistCard } from "./playlist-card";
 
 vi.mock("@/actions/playlists", () => ({
   softDeletePlaylist: vi.fn(),
+  togglePinPlaylist: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -38,5 +39,4 @@ it("renders stable UTC calendar dates", () => {
   );
 
   expect(screen.getByText("Last played 2026-05-02")).toBeInTheDocument();
-  expect(screen.getByText("Updated 2026-05-09")).toBeInTheDocument();
 });

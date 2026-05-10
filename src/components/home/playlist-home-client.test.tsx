@@ -3,12 +3,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlaylistHomeClient } from "./playlist-home-client";
 
 const refreshMock = vi.fn();
-const { createPlaylistFromUrlMock, softDeletePlaylistMock } = vi.hoisted(
-  () => ({
-    createPlaylistFromUrlMock: vi.fn(),
-    softDeletePlaylistMock: vi.fn(),
-  }),
-);
+const {
+  createPlaylistFromUrlMock,
+  softDeletePlaylistMock,
+  togglePinPlaylistMock,
+} = vi.hoisted(() => ({
+  createPlaylistFromUrlMock: vi.fn(),
+  softDeletePlaylistMock: vi.fn(),
+  togglePinPlaylistMock: vi.fn(),
+}));
 
 vi.mock("@/actions/import", () => ({
   createPlaylistFromUrl: createPlaylistFromUrlMock,
@@ -16,6 +19,7 @@ vi.mock("@/actions/import", () => ({
 
 vi.mock("@/actions/playlists", () => ({
   softDeletePlaylist: softDeletePlaylistMock,
+  togglePinPlaylist: togglePinPlaylistMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -70,6 +74,25 @@ const playlists = [
       initials: "FC",
     },
   },
+  {
+    id: "playlist-2",
+    title: "Pinned Show",
+    sourceTitles: ["Engsub"],
+    metadataText: "action",
+    pinned: true,
+    pinnedOrder: 1,
+    version: 2,
+    lastPlayedAt: "2026-05-08T10:00:00.000Z",
+    updatedAt: "2026-05-08T10:00:00.000Z",
+    activeSourceTitle: "Engsub",
+    activeSourceLastPlayedEpisodeIndex: 1,
+    activeSourceTotalEpisodes: 24,
+    banner: {
+      type: "gradient" as const,
+      value: "linear-gradient(135deg, #7f1d1d, #b45309)",
+      initials: "PS",
+    },
+  },
 ];
 
 describe("PlaylistHomeClient", () => {
@@ -86,6 +109,10 @@ describe("PlaylistHomeClient", () => {
       },
     });
     softDeletePlaylistMock.mockResolvedValue({
+      ok: true,
+      data: undefined,
+    });
+    togglePinPlaylistMock.mockResolvedValue({
       ok: true,
       data: undefined,
     });
@@ -188,6 +215,63 @@ describe("PlaylistHomeClient", () => {
         adminSecret: "top-secret",
         playlistId: "playlist-1",
         version: 3,
+      });
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows pinned playlists in a separate section above unpinned playlists", () => {
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    const headings = screen.getAllByRole("heading", { level: 3 });
+    expect(headings[0]).toHaveTextContent("Pinned");
+    expect(headings[1]).toHaveTextContent("All playlists");
+
+    expect(
+      screen.getByRole("link", { name: /pinned show/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /fate chooses you/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a pin action on right click and pins the playlist", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    fireEvent.contextMenu(
+      screen.getByRole("link", { name: /fate chooses you/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pin" }));
+
+    await waitFor(() => {
+      expect(togglePinPlaylistMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        playlistId: "playlist-1",
+        version: 3,
+        pinned: true,
+      });
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an unpin action for already pinned playlists", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    fireEvent.contextMenu(screen.getByRole("link", { name: /pinned show/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Unpin" }));
+
+    await waitFor(() => {
+      expect(togglePinPlaylistMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        playlistId: "playlist-2",
+        version: 2,
+        pinned: false,
       });
     });
 

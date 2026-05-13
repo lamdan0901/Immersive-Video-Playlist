@@ -2,55 +2,77 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { episodes, playlists, sources } from "@/db/schema";
 import { savePlaybackProgress } from "./playback";
 
-const { logMutationMock, returningResults, transactionMock, updateSteps } = vi.hoisted(() => {
-  const steps: Array<{ table: unknown; values: Record<string, unknown>; whereArg: unknown }> = [];
+const {
+  logMutationMock,
+  revalidatePathMock,
+  revalidateTagMock,
+  returningResults,
+  transactionMock,
+  updateSteps,
+} = vi.hoisted(() => {
+  const steps: Array<{
+    table: unknown;
+    values: Record<string, unknown>;
+    whereArg: unknown;
+  }> = [];
   const results = {
     episodes: [{ id: "episode-1" }],
     playlists: [{ id: "playlist-1" }],
-    sources: [{ id: "source-1" }]
+    sources: [{ id: "source-1" }],
   };
-  const transaction = vi.fn(async (callback: (tx: {
-    update: (table: unknown) => {
-      set: (values: Record<string, unknown>) => {
-        where: (whereArg: unknown) => {
-          returning: () => Promise<Array<{ id: string }>>;
+  const transaction = vi.fn(
+    async (
+      callback: (tx: {
+        update: (table: unknown) => {
+          set: (values: Record<string, unknown>) => {
+            where: (whereArg: unknown) => {
+              returning: () => Promise<Array<{ id: string }>>;
+            };
+          };
         };
-      };
-    };
-  }) => Promise<void>) => {
-    await callback({
-      update: (table) => ({
-        set: (values) => ({
-          where: (whereArg) => ({
-            returning: async () => {
-            steps.push({ table, values, whereArg });
-              if (table === episodes) return results.episodes;
-              if (table === sources) return results.sources;
-              if (table === playlists) return results.playlists;
-              return [];
-            }
-          })
-        })
-      })
-    });
-  });
+      }) => Promise<void>,
+    ) => {
+      await callback({
+        update: (table) => ({
+          set: (values) => ({
+            where: (whereArg) => ({
+              returning: async () => {
+                steps.push({ table, values, whereArg });
+                if (table === episodes) return results.episodes;
+                if (table === sources) return results.sources;
+                if (table === playlists) return results.playlists;
+                return [];
+              },
+            }),
+          }),
+        }),
+      });
+    },
+  );
 
   return {
     logMutationMock: vi.fn(),
+    revalidatePathMock: vi.fn(),
+    revalidateTagMock: vi.fn(),
     returningResults: results,
     transactionMock: transaction,
-    updateSteps: steps
+    updateSteps: steps,
   };
 });
 
+vi.mock("next/cache", () => ({
+  revalidatePath: revalidatePathMock,
+  revalidateTag: revalidateTagMock,
+}));
+
 vi.mock("@/db/client", () => ({
   db: {
-    transaction: transactionMock
-  }
+    transaction: transactionMock,
+  },
 }));
 
 vi.mock("./playlists", () => ({
-  logMutation: logMutationMock
+  logMutation: logMutationMock,
 }));
 
 describe("savePlaybackProgress", () => {
@@ -58,6 +80,8 @@ describe("savePlaybackProgress", () => {
     updateSteps.length = 0;
     transactionMock.mockClear();
     logMutationMock.mockReset();
+    revalidatePathMock.mockReset();
+    revalidateTagMock.mockReset();
     returningResults.episodes = [{ id: "episode-1" }];
     returningResults.sources = [{ id: "source-1" }];
     returningResults.playlists = [{ id: "playlist-1" }];
@@ -68,7 +92,7 @@ describe("savePlaybackProgress", () => {
       playlistId: "playlist-1",
       sourceId: "source-1",
       episodeKey: "ep-1",
-      seconds: 60.9
+      seconds: 60.9,
     });
 
     expect(updateSteps).toHaveLength(3);
@@ -80,27 +104,38 @@ describe("savePlaybackProgress", () => {
     const sourceSeconds = sourceUpdate?.values.lastPlayedSeconds;
 
     expect(episodeSeconds).toMatchObject({
-      queryChunks: expect.arrayContaining([60])
+      queryChunks: expect.arrayContaining([60]),
     });
     expect(sourceSeconds).toMatchObject({
-      queryChunks: expect.arrayContaining([60])
+      queryChunks: expect.arrayContaining([60]),
     });
     expect(playlistUpdate?.values).not.toHaveProperty("lastPlayedSeconds");
-    expect(logMutationMock).toHaveBeenCalledWith("playback.update", "Saved playback progress", "playlist-1");
+    expect(logMutationMock).toHaveBeenCalledWith(
+      "playback.update",
+      "Saved playback progress",
+      "playlist-1",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/playlist/playlist-1");
+    expect(revalidateTagMock).toHaveBeenCalledWith("playlists");
   });
 
   it("rejects mismatched playlist source episode chains without logging", async () => {
     returningResults.sources = [];
 
-    await expect(savePlaybackProgress({
-      playlistId: "playlist-1",
-      sourceId: "source-1",
-      episodeKey: "ep-1",
-      seconds: 60
-    })).rejects.toThrow();
+    await expect(
+      savePlaybackProgress({
+        playlistId: "playlist-1",
+        sourceId: "source-1",
+        episodeKey: "ep-1",
+        seconds: 60,
+      }),
+    ).rejects.toThrow();
 
     expect(updateSteps).toHaveLength(2);
     expect(updateSteps.some((step) => step.table === sources)).toBe(true);
     expect(logMutationMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).not.toHaveBeenCalled();
   });
 });

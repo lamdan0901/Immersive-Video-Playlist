@@ -5,29 +5,29 @@ import { PlaylistDetailClient } from "./playlist-detail-client";
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
 const { savePlaybackProgressMock } = vi.hoisted(() => ({
-  savePlaybackProgressMock: vi.fn()
+  savePlaybackProgressMock: vi.fn(),
 }));
 
 vi.mock("@/actions/playlists", () => ({
   createBlankSource: vi.fn(),
   softDeleteSource: vi.fn(),
   updatePlaylistTitle: vi.fn(),
-  updateSource: vi.fn()
+  updateSource: vi.fn(),
 }));
 
 vi.mock("@/actions/import", () => ({
-  refreshSource: vi.fn()
+  refreshSource: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
-    refresh: refreshMock
-  })
+    refresh: refreshMock,
+  }),
 }));
 
 vi.mock("@/actions/playback", () => ({
-  savePlaybackProgress: savePlaybackProgressMock
+  savePlaybackProgress: savePlaybackProgressMock,
 }));
 
 vi.mock("hls.js", () => ({
@@ -41,7 +41,7 @@ vi.mock("hls.js", () => ({
     attachMedia() {}
 
     destroy() {}
-  }
+  },
 }));
 
 const playlist = {
@@ -63,7 +63,7 @@ const playlist = {
           title: "Episode 1",
           embedUrl: "https://video.test/embed/1",
           m3u8Url: "https://video.test/1.m3u8",
-          lastPlayedSeconds: 0
+          lastPlayedSeconds: 0,
         },
         {
           id: "episode-a2",
@@ -71,9 +71,9 @@ const playlist = {
           title: "Episode 2",
           embedUrl: "https://video.test/embed/2",
           m3u8Url: "https://video.test/2.m3u8",
-          lastPlayedSeconds: 12
-        }
-      ]
+          lastPlayedSeconds: 12,
+        },
+      ],
     },
     {
       id: "source-b",
@@ -88,11 +88,11 @@ const playlist = {
           title: "Episode 1",
           embedUrl: "https://video.test/embed/b1",
           m3u8Url: "https://video.test/b1.m3u8",
-          lastPlayedSeconds: 3
-        }
-      ]
-    }
-  ]
+          lastPlayedSeconds: 3,
+        },
+      ],
+    },
+  ],
 };
 
 describe("PlaylistDetailClient", () => {
@@ -109,17 +109,21 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
-    expect(screen.queryByRole("region", { name: "Source switcher" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Episode list" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Episode list" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Editor" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
 
-    expect(screen.getByRole("region", { name: "Source switcher" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Episode list" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Episode list" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
   });
 
@@ -128,24 +132,33 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
 
     expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Playlist title")).toHaveValue("Fate Chooses You");
+    expect(screen.getByLabelText("Playlist title")).toHaveValue(
+      "Fate Chooses You",
+    );
     expect(screen.getByLabelText("Skip start minutes")).toHaveValue("0");
     expect(screen.getByLabelText("Skip start seconds")).toHaveValue("15");
     expect(screen.getByLabelText("Source title")).toHaveValue("Vietsub");
-    expect(screen.getByLabelText("Source URL")).toHaveValue("https://video.test/source-a.json");
+    expect(screen.getByLabelText("Source URL")).toHaveValue(
+      "https://video.test/source-a.json",
+    );
     expect(screen.getByLabelText("Preferred link type")).toHaveValue("embed");
-    expect(screen.getByRole("button", { name: "Create New Source" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh Source" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create New Source" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Refresh Source" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete Source" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete Source" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Advanced JSON")).toBeInTheDocument();
-    expect(screen.getByText("Embedded iframe players may ignore skip start unless the provider exposes seeking controls.")).toBeInTheDocument();
     expect(screen.queryByText("Skip start minutes")).not.toBeInTheDocument();
     expect(screen.queryByText("Skip start seconds")).not.toBeInTheDocument();
   });
@@ -155,7 +168,7 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
@@ -175,13 +188,17 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
 
-    const minutesInput = screen.getByLabelText("Skip start minutes") as HTMLInputElement;
-    const secondsInput = screen.getByLabelText("Skip start seconds") as HTMLInputElement;
+    const minutesInput = screen.getByLabelText(
+      "Skip start minutes",
+    ) as HTMLInputElement;
+    const secondsInput = screen.getByLabelText(
+      "Skip start seconds",
+    ) as HTMLInputElement;
 
     fireEvent.focus(minutesInput);
 
@@ -199,16 +216,23 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
     expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
 
-    fireEvent.keyDown(screen.getByLabelText("Playlist detail"), { key: "Escape", code: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
+      key: "Escape",
+      code: "Escape",
+    });
 
-    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open editor" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Editor" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open editor" }),
+    ).toBeInTheDocument();
   });
 
   it("closes the editor when clicking outside the dock", () => {
@@ -216,7 +240,7 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
@@ -224,8 +248,12 @@ describe("PlaylistDetailClient", () => {
 
     fireEvent.mouseDown(screen.getByLabelText("Playlist detail"));
 
-    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open editor" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Editor" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open editor" }),
+    ).toBeInTheDocument();
   });
 
   it("navigates back to the home page from the title bar button", () => {
@@ -233,13 +261,15 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Back to home" }));
 
     expect(pushMock).toHaveBeenCalledWith("/");
-    expect(screen.getByRole("button", { name: "Back to home" }).nextElementSibling).toHaveTextContent("1/2");
+    expect(
+      screen.getByRole("button", { name: "Back to home" }).nextElementSibling,
+    ).toHaveTextContent("1/2");
   });
 
   it("toggles the editor with Ctrl+E", () => {
@@ -247,22 +277,24 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyE",
-      ctrlKey: true
+      ctrlKey: true,
     });
 
     expect(screen.getByRole("heading", { name: "Editor" })).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyE",
-      ctrlKey: true
+      ctrlKey: true,
     });
 
-    expect(screen.queryByRole("heading", { name: "Editor" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Editor" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the current source when the target source does not have the current episode index", () => {
@@ -270,14 +302,20 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
-    fireEvent.click(screen.getByRole("button", { name: "Dubbed" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Dubbed1 ep · EMBED/i }),
+    );
 
-    expect(screen.getByRole("status")).toHaveTextContent("Episode does not exist in that source");
-    expect(screen.getByRole("button", { name: "Vietsub" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Episode does not exist in that source",
+    );
+    expect(
+      screen.getByRole("button", { name: /Vietsub2 ep · EMBED/i }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(pushMock).not.toHaveBeenCalled();
 
     act(() => {
@@ -292,16 +330,18 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyX",
-      ctrlKey: true
+      ctrlKey: true,
     });
 
     expect(screen.getByText("2/2")).toBeInTheDocument();
-    expect(pushMock).toHaveBeenCalledWith("/playlist/playlist-1?source=source-a&episode=1");
+    expect(pushMock).toHaveBeenCalledWith(
+      "/playlist/playlist-1?source=source-a&episode=1",
+    );
   });
 
   it("shows a next episode button when another episode exists and advances on click", () => {
@@ -309,13 +349,15 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Next episode" }));
 
     expect(screen.getByText("2/2")).toBeInTheDocument();
-    expect(pushMock).toHaveBeenCalledWith("/playlist/playlist-1?source=source-a&episode=1");
+    expect(pushMock).toHaveBeenCalledWith(
+      "/playlist/playlist-1?source=source-a&episode=1",
+    );
   });
 
   it("renders the edit control as an icon button", () => {
@@ -323,7 +365,7 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     const editButton = screen.getByRole("button", { name: "Open editor" });
@@ -336,10 +378,12 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
-    expect(screen.queryByRole("button", { name: "Next episode" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next episode" }),
+    ).not.toBeInTheDocument();
   });
 
   it("focuses the wrapper on mount", () => {
@@ -347,7 +391,7 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     const wrapper = screen.getByLabelText("Playlist detail");
@@ -360,11 +404,13 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     expect(screen.getByText("1/2")).toBeInTheDocument();
-    expect(screen.queryByText("Fate Chooses You · 1/2")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Fate Chooses You · 1/2"),
+    ).not.toBeInTheDocument();
   });
 
   it("ignores the shortcut when there is no current source", () => {
@@ -372,12 +418,12 @@ describe("PlaylistDetailClient", () => {
       <PlaylistDetailClient
         playlist={{ ...playlist, sources: [] }}
         initialPlayback={{ sourceId: null, episodeIndex: 0 }}
-      />
+      />,
     );
 
     fireEvent.keyDown(screen.getByLabelText("Playlist detail"), {
       code: "KeyX",
-      ctrlKey: true
+      ctrlKey: true,
     });
 
     expect(screen.getByText("No episode loaded.")).toBeInTheDocument();
@@ -391,11 +437,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     const video = container.querySelector("video");
@@ -403,7 +449,7 @@ describe("PlaylistDetailClient", () => {
     if (!video) return;
     Object.defineProperty(video, "currentTime", {
       configurable: true,
-      value: 47
+      value: 47,
     });
 
     fireEvent.pause(video);
@@ -412,7 +458,7 @@ describe("PlaylistDetailClient", () => {
       playlistId: "playlist-1",
       sourceId: "source-a",
       episodeKey: "ep-a2",
-      seconds: 47
+      seconds: 47,
     });
   });
 
@@ -423,11 +469,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     const video = container.querySelector("video");
@@ -435,7 +481,7 @@ describe("PlaylistDetailClient", () => {
     if (!video) return;
     Object.defineProperty(video, "currentTime", {
       configurable: true,
-      value: 47
+      value: 47,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
@@ -450,11 +496,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     const video = container.querySelector("video");
@@ -464,11 +510,11 @@ describe("PlaylistDetailClient", () => {
     let currentTime = 60;
     Object.defineProperty(video, "currentTime", {
       configurable: true,
-      get: () => currentTime
+      get: () => currentTime,
     });
     Object.defineProperty(video, "paused", {
       configurable: true,
-      get: () => false
+      get: () => false,
     });
 
     act(() => {
@@ -485,18 +531,18 @@ describe("PlaylistDetailClient", () => {
       playlistId: "playlist-1",
       sourceId: "source-a",
       episodeKey: "ep-a2",
-      seconds: 60
+      seconds: 60,
     });
     expect(savePlaybackProgressMock).toHaveBeenNthCalledWith(2, {
       playlistId: "playlist-1",
       sourceId: "source-a",
       episodeKey: "ep-a2",
-      seconds: 61
+      seconds: 61,
     });
 
     Object.defineProperty(video, "paused", {
       configurable: true,
-      get: () => true
+      get: () => true,
     });
 
     fireEvent.pause(video);
@@ -512,11 +558,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     let currentTime = 0;
@@ -529,11 +575,11 @@ describe("PlaylistDetailClient", () => {
         get: () => currentTime,
         set: (value: number) => {
           currentTime = value;
-        }
+        },
       });
       Object.defineProperty(video, "play", {
         configurable: true,
-        value: vi.fn(() => Promise.resolve())
+        value: vi.fn(() => Promise.resolve()),
       });
       return video;
     };
@@ -561,11 +607,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
-      />
+      />,
     );
 
     let currentTime = 0;
@@ -578,11 +624,11 @@ describe("PlaylistDetailClient", () => {
       get: () => currentTime,
       set: (value: number) => {
         currentTime = value;
-      }
+      },
     });
     Object.defineProperty(video, "play", {
       configurable: true,
-      value: vi.fn(() => Promise.resolve())
+      value: vi.fn(() => Promise.resolve()),
     });
 
     fireEvent.loadedMetadata(video);
@@ -597,11 +643,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     const video = container.querySelector("video");
@@ -609,7 +655,7 @@ describe("PlaylistDetailClient", () => {
     if (!video) return;
     Object.defineProperty(video, "currentTime", {
       configurable: true,
-      value: 44
+      value: 44,
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
@@ -619,7 +665,7 @@ describe("PlaylistDetailClient", () => {
       playlistId: "playlist-1",
       sourceId: "source-a",
       episodeKey: "ep-a2",
-      seconds: 44
+      seconds: 44,
     });
   });
 
@@ -633,11 +679,11 @@ describe("PlaylistDetailClient", () => {
           ...playlist,
           sources: playlist.sources.map((source) => ({
             ...source,
-            preferredLinkType: "m3u8" as const
-          }))
+            preferredLinkType: "m3u8" as const,
+          })),
         }}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
-      />
+      />,
     );
 
     const video = container.querySelector("video");
@@ -645,7 +691,7 @@ describe("PlaylistDetailClient", () => {
     if (!video) return;
     Object.defineProperty(video, "currentTime", {
       configurable: true,
-      value: 47
+      value: 47,
     });
 
     fireEvent.pause(video);

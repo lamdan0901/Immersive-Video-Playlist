@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPlaylistFromUrl } from "@/actions/import";
 import type { PlaylistSummary } from "@/db/queries/home";
@@ -21,6 +21,7 @@ export function PlaylistHomeClient({
   const [sourceUrl, setSourceUrl] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const ranked = rankPlaylists(playlists, query);
   const pinnedPlaylists = ranked.filter((p) => p.pinned);
   const unpinnedPlaylists = ranked.filter((p) => !p.pinned);
@@ -31,30 +32,38 @@ export function PlaylistHomeClient({
 
   async function handleCreatePlaylist(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitLockRef.current) {
+      return;
+    }
+
     const adminSecret = localStorage.getItem("adminSecret");
     if (!adminSecret) {
       setSubmitError("Admin unlock required");
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
     setSubmitError("");
 
-    const result = await createPlaylistFromUrl({
-      adminSecret,
-      sourceUrl: sourceUrl.trim(),
-    });
+    try {
+      const result = await createPlaylistFromUrl({
+        adminSecret,
+        sourceUrl: sourceUrl.trim(),
+      });
 
-    if (!result.ok) {
-      setSubmitError(result.error);
+      if (!result.ok) {
+        setSubmitError(result.error);
+        return;
+      }
+
+      setSourceUrl("");
+      setShowAddForm(false);
+      router.refresh();
+    } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
-      return;
     }
-
-    setSourceUrl("");
-    setShowAddForm(false);
-    setIsSubmitting(false);
-    router.refresh();
   }
 
   function handleUnlocked() {

@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-it("renders stable UTC calendar dates", () => {
+it("renders the active episode progress", () => {
   render(
     <PlaylistCard
       playlist={{
@@ -38,5 +38,5 @@ it("renders stable UTC calendar dates", () => {
     />,
   );
 
-  expect(screen.getByText("Last played 2026-05-02")).toBeInTheDocument();
+  expect(screen.getByText("Ep 3 / 12")).toBeInTheDocument();
 });

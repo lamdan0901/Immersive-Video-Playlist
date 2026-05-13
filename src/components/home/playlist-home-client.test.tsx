@@ -121,8 +121,12 @@ describe("PlaylistHomeClient", () => {
   it("shows a disabled add playlist button while locked", () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    expect(screen.getByRole("button", { name: "Unlock" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add playlist" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Admin Unlock" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add playlist" }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides unlock and enables add playlist when a stored secret exists", async () => {
@@ -132,7 +136,7 @@ describe("PlaylistHomeClient", () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByRole("button", { name: "Unlock" }),
+        screen.queryByRole("button", { name: "Admin Unlock" }),
       ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
@@ -141,12 +145,12 @@ describe("PlaylistHomeClient", () => {
   it("enables add playlist after unlocking from the toolbar", async () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    fireEvent.click(screen.getByRole("button", { name: "Admin Unlock" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm unlock" }));
 
     await waitFor(() => {
       expect(
-        screen.queryByRole("button", { name: "Unlock" }),
+        screen.queryByRole("button", { name: "Admin Unlock" }),
       ).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
@@ -182,6 +186,37 @@ describe("PlaylistHomeClient", () => {
     expect(
       screen.queryByLabelText("Playlist source URL"),
     ).not.toBeInTheDocument();
+  });
+
+  it("ignores a second submit while the import request is already in flight", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Add playlist" }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
+    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
+      target: {
+        value: "https://ophim1.com/v1/api/phim/fate-chooses-you",
+      },
+    });
+
+    const importButton = screen.getByRole("button", {
+      name: "Import playlist",
+    });
+    fireEvent.click(importButton);
+    fireEvent.click(importButton);
+
+    await waitFor(() => {
+      expect(createPlaylistFromUrlMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
   it("autofocuses the playlist source URL input when the inline form opens", async () => {

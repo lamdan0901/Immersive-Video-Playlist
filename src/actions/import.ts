@@ -3,11 +3,22 @@
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db/client";
-import { episodes, playlists, sourceSnapshots, sources, thirtyDaysFromNow } from "@/db/schema";
+import {
+  episodes,
+  playlists,
+  sourceSnapshots,
+  sources,
+  thirtyDaysFromNow,
+} from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import { normalizeImportedMovie } from "@/lib/importers";
 import { pickDerivedImage } from "@/lib/playlist-artwork";
-import { canonicalHash, matchImportedSource, preserveEpisodeIdentity, reconcileEpisodes } from "@/lib/source-refresh";
+import {
+  canonicalHash,
+  matchImportedSource,
+  preserveEpisodeIdentity,
+  reconcileEpisodes,
+} from "@/lib/source-refresh";
 import type { ImportedSource } from "@/lib/types";
 import { logMutation } from "./playlists";
 
@@ -23,8 +34,12 @@ function asErrorMessage(error: unknown): string {
   return "Import failed";
 }
 
-async function fetchSourceJson(url: string) {
-  const response = await fetch(url, { cache: "no-store" });
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+async function fetchSourceJson(url: string, signal?: AbortSignal) {
+  const response = await fetch(url, { cache: "no-store", signal });
 
   if (!response.ok) {
     throw new Error(`Import request failed with ${response.status}`);
@@ -33,7 +48,11 @@ async function fetchSourceJson(url: string) {
   return response.json();
 }
 
-async function writeSnapshot(tx: DbTransaction, sourceId: string, importedSource: ImportedSource) {
+async function writeSnapshot(
+  tx: DbTransaction,
+  sourceId: string,
+  importedSource: ImportedSource,
+) {
   const hash = canonicalHash(importedSource);
 
   await tx
@@ -41,9 +60,11 @@ async function writeSnapshot(tx: DbTransaction, sourceId: string, importedSource
     .values({
       sourceId,
       canonicalHash: hash,
-      payload: importedSource as unknown as Record<string, unknown>
+      payload: importedSource as unknown as Record<string, unknown>,
     })
-    .onConflictDoNothing({ target: [sourceSnapshots.sourceId, sourceSnapshots.canonicalHash] });
+    .onConflictDoNothing({
+      target: [sourceSnapshots.sourceId, sourceSnapshots.canonicalHash],
+    });
 
   const snapshotRows = await tx
     .select({ id: sourceSnapshots.id })
@@ -53,11 +74,17 @@ async function writeSnapshot(tx: DbTransaction, sourceId: string, importedSource
 
   const staleIds = snapshotRows.slice(10).map((snapshot) => snapshot.id);
   if (staleIds.length > 0) {
-    await tx.delete(sourceSnapshots).where(inArray(sourceSnapshots.id, staleIds));
+    await tx
+      .delete(sourceSnapshots)
+      .where(inArray(sourceSnapshots.id, staleIds));
   }
 }
 
-async function updateFailedImport(sourceId: string, sourceUrl: string, message: string) {
+async function updateFailedImport(
+  sourceId: string,
+  sourceUrl: string,
+  message: string,
+) {
   await db
     .update(sources)
     .set({
@@ -65,7 +92,7 @@ async function updateFailedImport(sourceId: string, sourceUrl: string, message: 
       importError: message,
       lastRefreshedAt: new Date(),
       updatedAt: new Date(),
-      version: sql<number>`${sources.version} + 1`
+      version: sql<number>`${sources.version} + 1`,
     })
     .where(eq(sources.id, sourceId));
 }
@@ -87,7 +114,10 @@ export async function createPlaylistFromUrl(input: {
     const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
 
     if (importedMovie.sources.length === 0) {
-      return { ok: false, error: "Imported payload does not contain any sources." };
+      return {
+        ok: false,
+        error: "Imported payload does not contain any sources.",
+      };
     }
 
     const now = new Date();
@@ -99,7 +129,7 @@ export async function createPlaylistFromUrl(input: {
           slug: importedMovie.slug,
           derivedImageUrl: pickDerivedImage(importedMovie),
           metadata: importedMovie.metadata,
-          updatedAt: now
+          updatedAt: now,
         })
         .returning({ id: playlists.id });
 
@@ -121,13 +151,15 @@ export async function createPlaylistFromUrl(input: {
             importError: null,
             lastRefreshedAt: now,
             metadata: importedSource as unknown as Record<string, unknown>,
-            updatedAt: now
+            updatedAt: now,
           })
           .returning({ id: sources.id });
 
         const sourceId = insertedSources[0]?.id;
         if (!sourceId) {
-          throw new Error(`Failed to insert source ${importedSource.sourceKey}`);
+          throw new Error(
+            `Failed to insert source ${importedSource.sourceKey}`,
+          );
         }
 
         if (importedSource.episodes.length > 0) {
@@ -140,8 +172,8 @@ export async function createPlaylistFromUrl(input: {
               filename: episode.filename,
               embedUrl: episode.embedUrl,
               m3u8Url: episode.m3u8Url,
-              sortOrder: episodeIndex
-            }))
+              sortOrder: episodeIndex,
+            })),
           );
         }
 
@@ -151,7 +183,11 @@ export async function createPlaylistFromUrl(input: {
       return playlistId;
     });
 
-    await logMutation("playlist.create", `Imported playlist ${importedMovie.title}`, playlistId);
+    await logMutation(
+      "playlist.create",
+      `Imported playlist ${importedMovie.title}`,
+      playlistId,
+    );
     revalidatePath("/");
     revalidatePath(`/playlist/${playlistId}`);
     revalidateTag("playlists");
@@ -160,8 +196,8 @@ export async function createPlaylistFromUrl(input: {
       ok: true,
       data: {
         playlistId,
-        message: `Imported playlist ${importedMovie.title}.`
-      }
+        message: `Imported playlist ${importedMovie.title}.`,
+      },
     };
   } catch (error) {
     return { ok: false, error: asErrorMessage(error) };
@@ -188,10 +224,16 @@ export async function refreshSource(input: {
       playlistId: sources.playlistId,
       sourceKey: sources.sourceKey,
       sourceTitle: sources.sourceTitle,
-      sortOrder: sources.sortOrder
+      sortOrder: sources.sortOrder,
     })
     .from(sources)
-    .where(and(eq(sources.id, input.sourceId), eq(sources.playlistId, input.playlistId), isNull(sources.deletedAt)));
+    .where(
+      and(
+        eq(sources.id, input.sourceId),
+        eq(sources.playlistId, input.playlistId),
+        isNull(sources.deletedAt),
+      ),
+    );
 
   const sourceRow = sourceRows[0];
   if (!sourceRow) {
@@ -207,7 +249,11 @@ export async function refreshSource(input: {
     return { ok: false, error: message };
   }
 
-  await logMutation("source.refresh", `Refreshed source ${sourceRow.sourceTitle}`, input.sourceId);
+  await logMutation(
+    "source.refresh",
+    `Refreshed source ${sourceRow.sourceTitle}`,
+    input.sourceId,
+  );
   revalidatePath("/");
   revalidatePath(`/playlist/${input.playlistId}`);
   revalidatePath("/trash");
@@ -216,8 +262,8 @@ export async function refreshSource(input: {
   return {
     ok: true,
     data: {
-      message: `Refreshed source ${sourceRow.sourceTitle}.`
-    }
+      message: `Refreshed source ${sourceRow.sourceTitle}.`,
+    },
   };
 }
 
@@ -230,10 +276,11 @@ async function performSourceRefresh(
     sortOrder: number;
     sourceUrl: string;
   },
-  sourceUrlOverride?: string
+  sourceUrlOverride?: string,
+  signal?: AbortSignal,
 ) {
   const sourceUrl = sourceUrlOverride?.trim() || sourceRow.sourceUrl;
-  const importedJson = await fetchSourceJson(sourceUrl);
+  const importedJson = await fetchSourceJson(sourceUrl, signal);
   const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
   const importedSource = matchImportedSource(sourceRow, importedMovie.sources);
 
@@ -253,9 +300,14 @@ async function performSourceRefresh(
         updatedAt: now,
         deletedAt: null,
         purgeAfter: null,
-        version: sql<number>`${sources.version} + 1`
+        version: sql<number>`${sources.version} + 1`,
       })
-      .where(and(eq(sources.id, sourceRow.id), eq(sources.playlistId, sourceRow.playlistId)));
+      .where(
+        and(
+          eq(sources.id, sourceRow.id),
+          eq(sources.playlistId, sourceRow.playlistId),
+        ),
+      );
 
     const existingEpisodes = await tx
       .select({
@@ -264,12 +316,15 @@ async function performSourceRefresh(
         slug: episodes.slug,
         filename: episodes.filename,
         sortOrder: episodes.sortOrder,
-        deletedAt: episodes.deletedAt
+        deletedAt: episodes.deletedAt,
       })
       .from(episodes)
       .where(eq(episodes.sourceId, sourceRow.id));
 
-    const normalizedEpisodes = preserveEpisodeIdentity(existingEpisodes, importedSource.episodes);
+    const normalizedEpisodes = preserveEpisodeIdentity(
+      existingEpisodes,
+      importedSource.episodes,
+    );
     const result = reconcileEpisodes(existingEpisodes, normalizedEpisodes);
 
     if (result.upserts.length > 0) {
@@ -287,8 +342,8 @@ async function performSourceRefresh(
             sortOrder: episode.sortOrder,
             updatedAt: now,
             deletedAt: null,
-            purgeAfter: null
-          }))
+            purgeAfter: null,
+          })),
         )
         .onConflictDoUpdate({
           target: [episodes.sourceId, episodes.episodeKey],
@@ -302,8 +357,8 @@ async function performSourceRefresh(
             deletedAt: null,
             purgeAfter: null,
             updatedAt: now,
-            version: sql<number>`${episodes.version} + 1`
-          }
+            version: sql<number>`${episodes.version} + 1`,
+          },
         });
     }
 
@@ -314,14 +369,14 @@ async function performSourceRefresh(
           deletedAt: now,
           purgeAfter: thirtyDaysFromNow,
           updatedAt: now,
-          version: sql<number>`${episodes.version} + 1`
+          version: sql<number>`${episodes.version} + 1`,
         })
         .where(
           and(
             eq(episodes.sourceId, sourceRow.id),
             inArray(episodes.episodeKey, result.softDeletes),
-            isNull(episodes.deletedAt)
-          )
+            isNull(episodes.deletedAt),
+          ),
         );
     }
 
@@ -329,12 +384,15 @@ async function performSourceRefresh(
   });
 }
 
-export async function autoRefreshPlaylist(playlistId?: string) {
+export async function autoRefreshPlaylist(
+  playlistId?: string,
+  signal?: AbortSignal,
+) {
   const threshold = sql<Date>`now() - interval '4 hours'`;
 
   const conditions = [
     isNull(sources.deletedAt),
-    or(isNull(sources.lastRefreshedAt), lt(sources.lastRefreshedAt, threshold))
+    or(isNull(sources.lastRefreshedAt), lt(sources.lastRefreshedAt, threshold)),
   ];
 
   if (playlistId) {
@@ -348,7 +406,7 @@ export async function autoRefreshPlaylist(playlistId?: string) {
       sourceKey: sources.sourceKey,
       sourceTitle: sources.sourceTitle,
       sortOrder: sources.sortOrder,
-      sourceUrl: sources.sourceUrl
+      sourceUrl: sources.sourceUrl,
     })
     .from(sources)
     .where(and(...conditions))
@@ -360,18 +418,27 @@ export async function autoRefreshPlaylist(playlistId?: string) {
 
   const staleSources = await query;
 
-  let refreshedCount = 0;
+  let touchedCount = 0;
   for (const sourceRow of staleSources) {
+    if (signal?.aborted) {
+      break;
+    }
+
     try {
-      await performSourceRefresh(sourceRow);
-      refreshedCount++;
+      await performSourceRefresh(sourceRow, undefined, signal);
+      touchedCount++;
     } catch (error) {
+      if (signal?.aborted || isAbortError(error)) {
+        break;
+      }
+
       const message = asErrorMessage(error);
       await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
+      touchedCount++;
     }
   }
 
-  if (refreshedCount > 0) {
+  if (touchedCount > 0) {
     revalidatePath("/");
     if (playlistId) {
       revalidatePath(`/playlist/${playlistId}`);

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { autoRefreshPlaylist } from "@/actions/import";
 import { getPlaylistSummaries } from "@/db/queries/home";
 import { PlaylistHomeClient } from "@/components/home/playlist-home-client";
 
@@ -11,8 +10,6 @@ async function HomeData() {
 }
 
 export default function HomePage() {
-  autoRefreshPlaylist().catch(() => {});
-
   return (
     <main className="home-page">
       <Suspense

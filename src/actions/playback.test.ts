@@ -115,8 +115,7 @@ describe("savePlaybackProgress", () => {
       "Saved playback progress",
       "playlist-1",
     );
-    expect(revalidatePathMock).toHaveBeenCalledWith("/");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/playlist/playlist-1");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(revalidateTagMock).toHaveBeenCalledWith("playlists");
   });
 

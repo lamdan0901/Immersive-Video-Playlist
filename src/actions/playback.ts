@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 import { logMutation } from "./playlists";
@@ -77,7 +77,5 @@ export async function savePlaybackProgress(input: {
     "Saved playback progress",
     input.playlistId,
   );
-  revalidatePath("/");
-  revalidatePath(`/playlist/${input.playlistId}`);
   revalidateTag("playlists");
 }

@@ -84,26 +84,27 @@ export function PlaylistHomeClient({
             placeholder="Search playlists"
             aria-label="Search playlists"
           />
-          <button
-            type="button"
-            className="accent-button"
-            disabled={!isUnlocked}
-            onClick={() => {
-              setShowAddForm(true);
-              setSubmitError("");
-            }}
-          >
-            Add playlist
-          </button>
-          {!isUnlocked ? (
+          {isUnlocked ? (
+            <button
+              type="button"
+              className="accent-button"
+              disabled={!isUnlocked}
+              onClick={() => {
+                setShowAddForm(true);
+                setSubmitError("");
+              }}
+            >
+              Add playlist
+            </button>
+          ) : (
             <button
               type="button"
               className="accent-button"
               onClick={() => setUnlockOpen(true)}
             >
-              Unlock
+              Admin Unlock
             </button>
-          ) : null}
+          )}
         </div>
         {showAddForm ? (
           <form className="home-import-panel" onSubmit={handleCreatePlaylist}>

@@ -204,6 +204,136 @@ export async function createPlaylistFromUrl(input: {
   }
 }
 
+export async function createSourceFromUrl(input: {
+  adminSecret: string;
+  playlistId: string;
+  playlistVersion: number;
+  sourceUrl: string;
+}): Promise<ActionResult<{ message: string }>> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const sourceUrl = input.sourceUrl.trim();
+  if (!sourceUrl) {
+    return { ok: false, error: "Source URL is required." };
+  }
+
+  try {
+    const importedJson = await fetchSourceJson(sourceUrl);
+    const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
+
+    if (importedMovie.sources.length === 0) {
+      return {
+        ok: false,
+        error: "Imported payload does not contain any sources.",
+      };
+    }
+
+    const now = new Date();
+    const created = await db.transaction(async (tx) => {
+      const playlistResult = await tx
+        .update(playlists)
+        .set({ version: input.playlistVersion + 1, updatedAt: now })
+        .where(
+          and(
+            eq(playlists.id, input.playlistId),
+            eq(playlists.version, input.playlistVersion),
+            isNull(playlists.deletedAt),
+          ),
+        )
+        .returning({ id: playlists.id });
+
+      if (playlistResult.length === 0) {
+        return null;
+      }
+
+      const maxSortResult = await tx
+        .select({
+          maxOrder: sql<number>`coalesce(max(${sources.sortOrder}), -1)`,
+        })
+        .from(sources)
+        .where(
+          and(
+            eq(sources.playlistId, input.playlistId),
+            isNull(sources.deletedAt),
+          ),
+        );
+      let nextSortOrder = (maxSortResult[0]?.maxOrder ?? -1) + 1;
+
+      const createdSources: { id: string; title: string }[] = [];
+      for (const importedSource of importedMovie.sources) {
+        const uniqueSourceKey = `${importedSource.sourceKey}-${Date.now()}`;
+        const inserted = await tx
+          .insert(sources)
+          .values({
+            playlistId: input.playlistId,
+            sourceKey: uniqueSourceKey,
+            sourceTitle: importedSource.sourceTitle,
+            sourceUrl: importedSource.sourceUrl,
+            preferredLinkType: importedSource.preferredLinkType,
+            sortOrder: nextSortOrder++,
+            importError: null,
+            lastRefreshedAt: now,
+            metadata: importedSource as unknown as Record<string, unknown>,
+            updatedAt: now,
+          })
+          .returning({ id: sources.id });
+
+        const sourceId = inserted[0]?.id;
+        if (!sourceId) {
+          throw new Error(
+            `Failed to insert source ${importedSource.sourceKey}`,
+          );
+        }
+
+        if (importedSource.episodes.length > 0) {
+          await tx.insert(episodes).values(
+            importedSource.episodes.map((episode, index) => ({
+              sourceId,
+              episodeKey: episode.episodeKey,
+              title: episode.title,
+              slug: episode.slug,
+              filename: episode.filename,
+              embedUrl: episode.embedUrl,
+              m3u8Url: episode.m3u8Url,
+              sortOrder: index,
+            })),
+          );
+        }
+
+        await writeSnapshot(tx, sourceId, importedSource);
+        createdSources.push({
+          id: sourceId,
+          title: importedSource.sourceTitle,
+        });
+      }
+
+      return createdSources;
+    });
+
+    if (!created) {
+      return {
+        ok: false,
+        error: "This playlist changed. Refresh before creating a source.",
+      };
+    }
+
+    const summary =
+      created.length === 1
+        ? `Created source "${created[0].title}" from URL.`
+        : `Created ${created.length} sources from URL.`;
+
+    await logMutation("source.create", summary, input.playlistId);
+    revalidatePath("/");
+    revalidatePath(`/playlist/${input.playlistId}`);
+    revalidateTag("playlists");
+
+    return { ok: true, data: { message: summary } };
+  } catch (error) {
+    return { ok: false, error: asErrorMessage(error) };
+  }
+}
+
 export async function refreshSource(input: {
   adminSecret: string;
   playlistId: string;

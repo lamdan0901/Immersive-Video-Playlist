@@ -1,10 +1,11 @@
 "use client";
 
-import { House, Library, List, Pencil, StepForward } from "lucide-react";
+import { House, Library, List, Pencil, StepForward, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { savePlaybackProgress } from "@/actions/playback";
+import { softDeleteSource } from "@/actions/playlists";
 import { EditorDrawer } from "./editor-drawer";
 import { EpisodeList } from "./episode-list";
 import { PlayerStage } from "./player-stage";
@@ -55,6 +56,58 @@ export function PlaylistDetailClient({
   );
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(new Set());
+
+  const visibleSources = playlist.sources.filter((s) => !deletedSourceIds.has(s.id));
+
+  const deleteSource = useCallback(
+    async (sourceId: string) => {
+      const source = playlist.sources.find((s) => s.id === sourceId);
+      if (!source) return;
+
+      const adminSecret = window.localStorage.getItem("adminSecret");
+      if (!adminSecret) {
+        setToast("Admin unlock required");
+        window.setTimeout(() => setToast(null), 2500);
+        return;
+      }
+
+      setDeletedSourceIds((prev) => new Set(prev).add(sourceId));
+
+      if (currentSourceId === sourceId) {
+        const nextSource = visibleSources.find((s) => s.id !== sourceId);
+        if (nextSource) {
+          setCurrentSourceId(nextSource.id);
+          router.push(
+            `/playlist/${playlist.id}?source=${nextSource.id}&episode=0`,
+          );
+        } else {
+          setCurrentSourceId(null);
+        }
+      }
+
+      const result = await softDeleteSource({
+        adminSecret,
+        playlistId: playlist.id,
+        playlistVersion: playlist.version,
+        sourceId: source.id,
+        sourceVersion: source.version,
+      });
+
+      if (!result.ok) {
+        setDeletedSourceIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sourceId);
+          return next;
+        });
+        setToast(result.error);
+        window.setTimeout(() => setToast(null), 2500);
+      } else {
+        router.refresh();
+      }
+    },
+    [playlist, currentSourceId, visibleSources, router],
+  );
 
   const currentSource =
     playlist.sources.find((source) => source.id === currentSourceId) ??
@@ -234,7 +287,7 @@ export function PlaylistDetailClient({
         >
           <Pencil aria-hidden="true" size={18} strokeWidth={2.2} />
         </button>
-        {playlist.sources.length > 0 ? (
+        {visibleSources.length > 0 ? (
           <div className="action-source-control">
             <button
               type="button"
@@ -246,22 +299,33 @@ export function PlaylistDetailClient({
             <div className="action-source-select-panel" aria-label="Sources">
               <span>Sources</span>
               <div className="action-source-list">
-                {playlist.sources.map((source) => (
-                  <button
-                    key={source.id}
-                    type="button"
-                    className="action-source-item"
-                    aria-pressed={source.id === currentSource?.id}
-                    onClick={() => switchSource(source.id)}
-                  >
-                    <span className="action-source-item-title">
-                      {source.sourceTitle}
-                    </span>
-                    <span className="action-source-item-meta">
-                      {source.episodes.length} ep ·{" "}
-                      {source.preferredLinkType.toUpperCase()}
-                    </span>
-                  </button>
+                {visibleSources.map((source) => (
+                  <div key={source.id} className="action-source-item" aria-pressed={source.id === currentSource?.id}>
+                    <button
+                      type="button"
+                      className="action-source-item-main"
+                      onClick={() => switchSource(source.id)}
+                    >
+                      <span className="action-source-item-title">
+                        {source.sourceTitle}
+                      </span>
+                      <span className="action-source-item-meta">
+                        {source.episodes.length} ep ·{" "}
+                        {source.preferredLinkType.toUpperCase()}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="action-source-item-delete"
+                      aria-label={`Delete ${source.sourceTitle}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteSource(source.id);
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" size={14} strokeWidth={2} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

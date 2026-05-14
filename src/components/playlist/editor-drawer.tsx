@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { refreshSource } from "@/actions/import";
+import { createSourceFromUrl, refreshSource } from "@/actions/import";
 import {
-  createBlankSource,
   softDeleteSource,
   updatePlaylistTitle,
   updateSource,
@@ -138,16 +137,27 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
   }
 
   async function handleCreate(adminSecret: string) {
-    const result = await createBlankSource({
+    const trimmedUrl = sourceUrl.trim();
+    if (!trimmedUrl) {
+      setStatus("Source URL is required.");
+      return;
+    }
+
+    try {
+      new URL(trimmedUrl);
+    } catch {
+      setStatus("Source URL is not a valid URL.");
+      return;
+    }
+
+    const result = await createSourceFromUrl({
       adminSecret,
       playlistId: playlist.id,
       playlistVersion: playlist.version,
-      sourceTitle: "New Source",
-      sourceUrl: "",
-      preferredLinkType: "embed",
+      sourceUrl: trimmedUrl,
     });
 
-    setStatus(result.ok ? "Created a new blank source." : result.error);
+    setStatus(result.ok ? result.data.message : result.error);
     if (result.ok) {
       router.refresh();
     }
@@ -350,7 +360,11 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
             <button
               type="button"
               className="ghost-button"
-              disabled={isPending}
+              disabled={
+                isPending ||
+                !sourceUrl.trim() ||
+                sourceUrl.trim() === (source?.sourceUrl ?? "")
+              }
               onClick={() => runWithAdminSecret(handleCreate)}
             >
               Create New Source

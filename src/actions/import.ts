@@ -514,10 +514,7 @@ async function performSourceRefresh(
   });
 }
 
-export async function autoRefreshPlaylist(
-  playlistId?: string,
-  signal?: AbortSignal,
-) {
+async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   const threshold = sql<Date>`now() - interval '4 hours'`;
 
   const conditions = [
@@ -568,6 +565,15 @@ export async function autoRefreshPlaylist(
     }
   }
 
+  return touchedCount;
+}
+
+export async function autoRefreshPlaylist(
+  playlistId?: string,
+  signal?: AbortSignal,
+) {
+  const touchedCount = await performAutoRefresh(playlistId, signal);
+
   if (touchedCount > 0) {
     revalidatePath("/");
     if (playlistId) {
@@ -576,6 +582,23 @@ export async function autoRefreshPlaylist(
     revalidatePath("/trash");
     revalidateTag("playlists");
   }
+}
+
+export async function triggerAutoRefresh(input: {
+  playlistId?: string;
+}): Promise<ActionResult<{ refreshed: number }>> {
+  const touchedCount = await performAutoRefresh(input.playlistId);
+
+  if (touchedCount > 0) {
+    revalidatePath("/");
+    if (input.playlistId) {
+      revalidatePath(`/playlist/${input.playlistId}`);
+    }
+    revalidatePath("/trash");
+    revalidateTag("playlists");
+  }
+
+  return { ok: true, data: { refreshed: touchedCount } };
 }
 
 export { fetchSourceJson };

@@ -5,6 +5,7 @@ import {
   resolveSkipStartSeconds,
 } from "@/lib/playback";
 import { PlaylistDetailClient } from "@/components/playlist/playlist-detail-client";
+import { AutoRefreshTrigger } from "@/components/auto-refresh-trigger";
 
 export default async function PlaylistDetailPage({
   params,
@@ -25,13 +26,16 @@ export default async function PlaylistDetailPage({
   });
 
   return (
-    <PlaylistDetailClient
-      playlist={{
-        ...playlist,
-        skipStartSeconds: resolveSkipStartSeconds(playlist.metadata),
-      }}
-      initialPlayback={initial}
-      allPlaylists={allPlaylists.map((p) => ({ id: p.id, title: p.title }))}
-    />
+    <>
+      <AutoRefreshTrigger playlistId={id} />
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          skipStartSeconds: resolveSkipStartSeconds(playlist.metadata),
+        }}
+        initialPlayback={initial}
+        allPlaylists={allPlaylists.map((p) => ({ id: p.id, title: p.title }))}
+      />
+    </>
   );
 }

@@ -84,7 +84,12 @@ export function normalizeImportedMovie(data: unknown, sourceUrl: string): Import
     throw new Error("Unsupported import response");
   }
 
-  const rawServers = Array.isArray(item.episodes) ? (item.episodes as RawServer[]) : [];
+  const allServers = Array.isArray(item.episodes) ? (item.episodes as RawServer[]) : [];
+  const vietsubServers = allServers.filter((server) => {
+    const name = asString(server.server_name);
+    return name != null && name.toLowerCase().startsWith("vietsub");
+  });
+  const rawServers = vietsubServers.length > 0 ? vietsubServers : allServers;
   const responseData = record.data as Record<string, unknown> | undefined;
   const seoSchema = asRecord(asRecord(asRecord(responseData?.seoOnPage)?.seoSchema));
   const cdn = asString(responseData?.APP_DOMAIN_CDN_IMAGE) ?? asString(record.APP_DOMAIN_CDN_IMAGE);

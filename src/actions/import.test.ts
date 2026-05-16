@@ -142,7 +142,6 @@ describe("createSourceFromUrl", () => {
     expect(sourceInsertValues).not.toHaveLength(0);
     expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
       "ophim1.com",
-      "ophim1.com",
     ]);
   });
 });

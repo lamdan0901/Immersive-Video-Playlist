@@ -32,7 +32,7 @@ describe("normalizeImportedMovie", () => {
     const movie = normalizeImportedMovie(ophim, "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh");
 
     expect(movie.title).toBe("Giai Ngẫu Thiên Thành");
-    expect(movie.sources).toHaveLength(2);
+    expect(movie.sources).toHaveLength(1);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
     expect(movie.sources[0].preferredLinkType).toBe("embed");
     expect(movie.sources[0].episodes[0]).toMatchObject({
@@ -57,6 +57,68 @@ describe("normalizeImportedMovie", () => {
       embedUrl: "https://embed13.streamc.xyz/embed.php?hash=05d1260ef455a2305874f749a8294a36"
     });
     expect(movie.imageUrl).toContain("vuong-mien-hoan-hao.jpg");
+  });
+
+  it("filters NguonC to only Vietsub when multiple servers exist", () => {
+    const multiServerPayload = {
+      status: "success",
+      movie: {
+        name: "Vũ Lâm Linh",
+        slug: "vu-lam-linh",
+        thumb_url: "https://phim.nguonc.com/public/images/Post/10/vu-lam-linh.jpg",
+        episodes: [
+          {
+            server_name: "Vietsub #1",
+            items: [
+              { name: "1", slug: "tap-1", embed: "https://embed13.streamc.xyz/embed.php?hash=vietsub1" },
+              { name: "2", slug: "tap-2", embed: "https://embed12.streamc.xyz/embed.php?hash=vietsub2" },
+            ]
+          },
+          {
+            server_name: "Thuyết minh #1",
+            items: [
+              { name: "1", slug: "tap-1", embed: "https://embed13.streamc.xyz/embed.php?hash=tm1" },
+            ]
+          },
+        ]
+      }
+    };
+
+    const movie = normalizeImportedMovie(multiServerPayload, "https://phim.nguonc.com/api/film/vu-lam-linh");
+    expect(movie.sources).toHaveLength(1);
+    expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
+    expect(movie.sources[0].episodes).toHaveLength(2);
+  });
+
+  it("filters OPhim to only Vietsub when multiple servers exist", () => {
+    const multiServerPayload = {
+      data: {
+        item: {
+          name: "Test Movie",
+          slug: "test-movie",
+          thumb_url: "test-thumb.jpg",
+          episodes: [
+            {
+              server_name: "Vietsub #1",
+              server_data: [
+                { name: "1", slug: "1", link_embed: "https://embed/vietsub1" },
+              ]
+            },
+            {
+              server_name: "Thuyết Minh #1",
+              server_data: [
+                { name: "1", slug: "1", link_embed: "https://embed/tm1" },
+              ]
+            },
+          ]
+        },
+        APP_DOMAIN_CDN_IMAGE: "https://img.ophim.live"
+      }
+    };
+
+    const movie = normalizeImportedMovie(multiServerPayload, "https://ophim1.com/v1/api/phim/test-movie");
+    expect(movie.sources).toHaveLength(1);
+    expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
   });
 });
 

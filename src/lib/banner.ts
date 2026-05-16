@@ -17,8 +17,14 @@ const gradients = [
 ];
 
 export function chooseBanner(input: BannerInput): BannerResult {
-  const image = input.bannerOverrideUrl ?? input.derivedImageUrl ?? input.sourceImages.find(Boolean);
-  if (image) return { type: "image", value: image };
+  let image = input.bannerOverrideUrl ?? input.derivedImageUrl ?? input.sourceImages.find(Boolean);
+  
+  if (image) {
+    if (/^https?:\/\//i.test(image) && !image.includes('wsrv.nl')) {
+      image = `https://wsrv.nl/?url=${encodeURIComponent(image)}`;
+    }
+    return { type: "image", value: image };
+  }
 
   const initials = input.title
     .split(/\s+/)

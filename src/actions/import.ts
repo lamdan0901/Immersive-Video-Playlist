@@ -524,7 +524,7 @@ async function performSourceRefresh(
 }
 
 async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
-  const threshold = sql<Date>`now() - interval '4 hours'`;
+  const threshold = sql<Date>`now() - interval '1 hour'`;
 
   const conditions = [
     isNull(sources.deletedAt),

@@ -1,5 +1,4 @@
 import { asc, desc, isNull } from "drizzle-orm";
-import { unstable_cache } from "next/cache";
 import { db } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 import { chooseBanner } from "@/lib/banner";
@@ -65,8 +64,4 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
   });
 }
 
-export const getPlaylistSummaries = unstable_cache(
-  fetchPlaylistSummaries,
-  ["playlist-summaries"],
-  { tags: ["playlists"] }
-);
+export const getPlaylistSummaries = fetchPlaylistSummaries;

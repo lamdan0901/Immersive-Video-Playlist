@@ -7,6 +7,8 @@ import {
 import { PlaylistDetailClient } from "@/components/playlist/playlist-detail-client";
 import { AutoRefreshTrigger } from "@/components/auto-refresh-trigger";
 
+export const dynamic = "force-dynamic";
+
 export default async function PlaylistDetailPage({
   params,
   searchParams,

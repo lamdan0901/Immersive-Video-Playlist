@@ -152,7 +152,7 @@ export async function createPlaylistFromUrl(input: {
           .values({
             playlistId,
             sourceKey: importedSource.sourceKey,
-            sourceTitle: importedSource.sourceTitle,
+            sourceTitle: sourceTitleFromUrl(sourceUrl),
             sourceUrl: importedSource.sourceUrl,
             preferredLinkType: importedSource.preferredLinkType,
             sortOrder: index,

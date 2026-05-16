@@ -300,10 +300,11 @@ export function PlaylistDetailClient({
               <span>Sources</span>
               <div className="action-source-list">
                 {visibleSources.map((source) => (
-                  <div key={source.id} className="action-source-item" aria-pressed={source.id === currentSource?.id}>
+                  <div key={source.id} className="action-source-item">
                     <button
                       type="button"
                       className="action-source-item-main"
+                      aria-pressed={source.id === currentSource?.id}
                       onClick={() => switchSource(source.id)}
                     >
                       <span className="action-source-item-title">

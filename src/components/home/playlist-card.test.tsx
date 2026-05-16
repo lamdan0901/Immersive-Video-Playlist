@@ -29,6 +29,7 @@ it("renders the active episode progress", () => {
         activeSourceTitle: "Vietsub",
         activeSourceLastPlayedEpisodeIndex: 2,
         activeSourceTotalEpisodes: 12,
+        allSources: [{ title: "Vietsub", episodeCount: 12 }],
         banner: {
           type: "gradient",
           value: "linear-gradient(135deg, #14532d, #1d4ed8)",
@@ -38,5 +39,6 @@ it("renders the active episode progress", () => {
     />,
   );
 
-  expect(screen.getByText("Ep 3 / 12")).toBeInTheDocument();
+  expect(screen.getByText("EP 3")).toBeInTheDocument();
+  expect(screen.getByText("Vietsub")).toBeInTheDocument();
 });

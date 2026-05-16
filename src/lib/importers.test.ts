@@ -1,6 +1,6 @@
 import ophim from "@/test/fixtures/sample-ophim.json";
 import nguonc from "@/test/fixtures/sample-nguonc.json";
-import { makeEpisodeKey, normalizeImportedMovie } from "./importers";
+import { makeEpisodeKey, normalizeImportedMovie, resolveApiUrl } from "./importers";
 
 describe("normalizeImportedMovie", () => {
   it("prefers OPhim seo schema image for playlist artwork", () => {
@@ -129,5 +129,34 @@ describe("makeEpisodeKey", () => {
 
   it("falls back to normalized episode number plus source key", () => {
     expect(makeEpisodeKey({ name: "Tập 12" }, "source-a")).toBe("source-a:12");
+  });
+});
+
+describe("resolveApiUrl", () => {
+  it("converts normal OPhim URL to API URL", () => {
+    expect(resolveApiUrl("https://ophim18.cc/phim/sup-do-phan-2"))
+      .toBe("https://ophim1.com/v1/api/phim/sup-do-phan-2");
+  });
+
+  it("converts normal NguonC URL to API URL", () => {
+    expect(resolveApiUrl("https://phim.nguonc.com/phim/vuong-mien-hoan-hao"))
+      .toBe("https://phim.nguonc.com/api/film/vuong-mien-hoan-hao");
+  });
+
+  it("leaves API OPhim URL unchanged", () => {
+    expect(resolveApiUrl("https://ophim1.com/v1/api/phim/sup-do-phan-2"))
+      .toBe("https://ophim1.com/v1/api/phim/sup-do-phan-2");
+  });
+
+  it("leaves API NguonC URL unchanged", () => {
+    expect(resolveApiUrl("https://phim.nguonc.com/api/film/vuong-mien-hoan-hao"))
+      .toBe("https://phim.nguonc.com/api/film/vuong-mien-hoan-hao");
+  });
+
+  it("leaves unrelated URLs unchanged", () => {
+    expect(resolveApiUrl("https://example.com/phim/test"))
+      .toBe("https://example.com/phim/test");
+    expect(resolveApiUrl("invalid url"))
+      .toBe("invalid url");
   });
 });

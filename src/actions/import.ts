@@ -11,7 +11,7 @@ import {
   thirtyDaysFromNow,
 } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
-import { normalizeImportedMovie } from "@/lib/importers";
+import { normalizeImportedMovie, resolveApiUrl } from "@/lib/importers";
 import { pickDerivedImage } from "@/lib/playlist-artwork";
 import {
   canonicalHash,
@@ -112,10 +112,12 @@ export async function createPlaylistFromUrl(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
-  const sourceUrl = input.sourceUrl.trim();
-  if (!sourceUrl) {
+  const rawUrl = input.sourceUrl.trim();
+  if (!rawUrl) {
     return { ok: false, error: "Source URL is required before import." };
   }
+
+  const sourceUrl = resolveApiUrl(rawUrl);
 
   try {
     const importedJson = await fetchSourceJson(sourceUrl);
@@ -221,10 +223,12 @@ export async function createSourceFromUrl(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
-  const sourceUrl = input.sourceUrl.trim();
-  if (!sourceUrl) {
+  const rawUrl = input.sourceUrl.trim();
+  if (!rawUrl) {
     return { ok: false, error: "Source URL is required." };
   }
+
+  const sourceUrl = resolveApiUrl(rawUrl);
 
   try {
     const importedJson = await fetchSourceJson(sourceUrl);
@@ -352,10 +356,12 @@ export async function refreshSource(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
-  const sourceUrl = input.sourceUrl.trim();
-  if (!sourceUrl) {
+  const rawUrl = input.sourceUrl.trim();
+  if (!rawUrl) {
     return { ok: false, error: "Source URL is required before refresh." };
   }
+
+  const sourceUrl = resolveApiUrl(rawUrl);
 
   const sourceRows = await db
     .select({

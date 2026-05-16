@@ -68,6 +68,7 @@ const playlists = [
     activeSourceTitle: null,
     activeSourceLastPlayedEpisodeIndex: 0,
     activeSourceTotalEpisodes: 0,
+    allSources: [{ title: "Vietsub", episodeCount: 0 }],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #14532d, #1d4ed8)",
@@ -87,6 +88,7 @@ const playlists = [
     activeSourceTitle: "Engsub",
     activeSourceLastPlayedEpisodeIndex: 1,
     activeSourceTotalEpisodes: 24,
+    allSources: [{ title: "Engsub", episodeCount: 24 }],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #7f1d1d, #b45309)",

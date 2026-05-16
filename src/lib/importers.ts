@@ -1,5 +1,29 @@
 import type { ImportedEpisode, ImportedMovie, ImportedSource, LinkType } from "./types";
 
+export function resolveApiUrl(sourceUrl: string): string {
+  try {
+    const url = new URL(sourceUrl);
+
+    if (url.hostname.includes("ophim") && url.pathname.startsWith("/phim/")) {
+      const slug = url.pathname.slice(6);
+      if (slug) {
+        return `https://ophim1.com/v1/api/phim/${slug}`;
+      }
+    }
+
+    if (url.hostname.includes("nguonc") && url.pathname.startsWith("/phim/")) {
+      const slug = url.pathname.slice(6);
+      if (slug) {
+        return `https://${url.hostname}/api/film/${slug}`;
+      }
+    }
+
+    return sourceUrl;
+  } catch {
+    return sourceUrl;
+  }
+}
+
 type RawEpisode = {
   name?: unknown;
   slug?: unknown;

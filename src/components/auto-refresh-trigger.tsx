@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { triggerAutoRefresh } from "@/actions/import";
 
 export function AutoRefreshTrigger({ playlistId }: { playlistId?: string }) {
+  const router = useRouter();
+
   useEffect(() => {
-    // Trigger auto-refresh after component mounts (after render phase)
-    triggerAutoRefresh({ playlistId }).catch((error) => {
+    triggerAutoRefresh({ playlistId }).then((result) => {
+      if (result.ok && result.data.refreshed > 0) {
+        router.refresh();
+      }
+    }).catch((error) => {
       console.error("Auto-refresh failed:", error);
     });
-  }, [playlistId]);
+  }, [playlistId, router]);
 
   return null;
 }

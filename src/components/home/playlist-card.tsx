@@ -118,11 +118,75 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           <div className="playlist-card-heading">
             <h2>{playlist.title}</h2>
           </div>
-          <p className="playlist-card-sources">
-            {playlist.activeSourceTotalEpisodes > 0
-              ? `Ep ${playlist.activeSourceLastPlayedEpisodeIndex + 1} / ${playlist.activeSourceTotalEpisodes}`
-              : null}
-          </p>
+          <div className="playlist-card-sources">
+            {playlist.activeSourceTotalEpisodes > 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      background: "rgba(255, 255, 255, 0.12)",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      color: "#fff",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    EP {playlist.activeSourceLastPlayedEpisodeIndex + 1}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {playlist.allSources.map((s, i) => {
+                    const isActive = s.title === playlist.activeSourceTitle;
+                    return (
+                      <span
+                        key={i}
+                        style={{
+                          fontSize: "0.75rem",
+                          padding: "2px 8px",
+                          borderRadius: "999px",
+                          background: isActive
+                            ? "rgba(59, 130, 246, 0.15)"
+                            : "rgba(20, 166, 25, 0.1)",
+                          color: isActive ? "#93c5fd" : "#46a346ff",
+                          border: `1px solid ${
+                            isActive
+                              ? "rgba(59, 130, 246, 0.3)"
+                              : "rgba(20, 166, 25, 0.3)"
+                          }`,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                        }}
+                      >
+                        <span>{s.title}</span>
+                        <strong
+                          style={{
+                            color: isActive ? "#ffffff" : "#d4d4d4",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {s.totalEpisodes}
+                        </strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </Link>
       {menuOpen ? (

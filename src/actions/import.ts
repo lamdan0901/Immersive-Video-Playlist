@@ -38,6 +38,14 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
 
+function sourceTitleFromUrl(sourceUrl: string) {
+  try {
+    return new URL(sourceUrl).hostname;
+  } catch {
+    return "New Source";
+  }
+}
+
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
   const response = await fetch(url, { cache: "no-store", signal });
 
@@ -230,6 +238,7 @@ export async function createSourceFromUrl(input: {
     }
 
     const now = new Date();
+    const createdSourceTitle = sourceTitleFromUrl(sourceUrl);
     const created = await db.transaction(async (tx) => {
       const playlistResult = await tx
         .update(playlists)
@@ -268,7 +277,7 @@ export async function createSourceFromUrl(input: {
           .values({
             playlistId: input.playlistId,
             sourceKey: uniqueSourceKey,
-            sourceTitle: importedSource.sourceTitle,
+            sourceTitle: createdSourceTitle,
             sourceUrl: importedSource.sourceUrl,
             preferredLinkType: importedSource.preferredLinkType,
             sortOrder: nextSortOrder++,
@@ -304,7 +313,7 @@ export async function createSourceFromUrl(input: {
         await writeSnapshot(tx, sourceId, importedSource);
         createdSources.push({
           id: sourceId,
-          title: importedSource.sourceTitle,
+          title: createdSourceTitle,
         });
       }
 

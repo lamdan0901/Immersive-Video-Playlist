@@ -554,10 +554,6 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
     .where(and(...conditions))
     .orderBy(asc(sources.lastRefreshedAt));
 
-  if (!playlistId) {
-    query = query.limit(5) as typeof query;
-  }
-
   const staleSources = await query;
 
   let touchedCount = 0;
@@ -586,10 +582,11 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
 export async function autoRefreshPlaylist(
   playlistId?: string,
   signal?: AbortSignal,
+  options?: { revalidate?: boolean },
 ) {
   const touchedCount = await performAutoRefresh(playlistId, signal);
 
-  if (touchedCount > 0) {
+  if (options?.revalidate !== false && touchedCount > 0) {
     revalidatePath("/");
     if (playlistId) {
       revalidatePath(`/playlist/${playlistId}`);

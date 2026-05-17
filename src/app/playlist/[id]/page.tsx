@@ -1,3 +1,4 @@
+import { autoRefreshPlaylist } from "@/actions/import";
 import { getPlaylistDetail } from "@/db/queries/playlist";
 import { getPlaylistSummaries } from "@/db/queries/home";
 import {
@@ -5,7 +6,6 @@ import {
   resolveSkipStartSeconds,
 } from "@/lib/playback";
 import { PlaylistDetailClient } from "@/components/playlist/playlist-detail-client";
-import { AutoRefreshTrigger } from "@/components/auto-refresh-trigger";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +18,7 @@ export default async function PlaylistDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
+  await autoRefreshPlaylist(id, undefined, { revalidate: false });
   const [playlist, allPlaylists] = await Promise.all([
     getPlaylistDetail(id),
     getPlaylistSummaries(),
@@ -29,7 +30,6 @@ export default async function PlaylistDetailPage({
 
   return (
     <>
-      <AutoRefreshTrigger playlistId={id} />
       <PlaylistDetailClient
         playlist={{
           ...playlist,

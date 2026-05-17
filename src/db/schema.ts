@@ -38,6 +38,7 @@ export const playlists = pgTable("playlists", {
   derivedImageUrl: text("derived_image_url"),
   pinned: boolean("pinned").notNull().default(false),
   pinnedOrder: integer("pinned_order").notNull().default(0),
+  autoRefreshDisabled: boolean("auto_refresh_disabled").notNull().default(false),
   lastPlayedAt: timestamp("last_played_at", { withTimezone: true }),
   lastPlayedSourceId: uuid("last_played_source_id"),
   lastPlayedEpisodeKey: text("last_played_episode_key"),

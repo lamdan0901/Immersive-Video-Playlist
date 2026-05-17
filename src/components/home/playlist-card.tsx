@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { softDeletePlaylist, togglePinPlaylist } from "@/actions/playlists";
+import { softDeletePlaylist, toggleAutoRefreshPlaylist, togglePinPlaylist } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
 
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
@@ -12,6 +12,7 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
+  const [isTogglingRefresh, setIsTogglingRefresh] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -59,6 +60,33 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
       throw new Error(result.error);
     }
 
+    setMenuOpen(false);
+    router.refresh();
+  }
+
+  async function handleAutoRefreshClick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const adminSecret = localStorage.getItem("adminSecret");
+    if (!adminSecret) {
+      throw new Error("Admin unlock required");
+    }
+
+    setIsTogglingRefresh(true);
+
+    const result = await toggleAutoRefreshPlaylist({
+      adminSecret,
+      playlistId: playlist.id,
+      version: playlist.version,
+      autoRefreshDisabled: !playlist.autoRefreshDisabled,
+    });
+
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    setIsTogglingRefresh(false);
     setMenuOpen(false);
     router.refresh();
   }
@@ -195,6 +223,20 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           role="menu"
           aria-label={`${playlist.title} actions`}
         >
+          <button
+            type="button"
+            className="playlist-card-menu-autorefresh"
+            onClick={handleAutoRefreshClick}
+            disabled={isTogglingRefresh}
+          >
+            {isTogglingRefresh
+              ? playlist.autoRefreshDisabled
+                ? "Enabling..."
+                : "Disabling..."
+              : playlist.autoRefreshDisabled
+                ? "Enable Refresh"
+                : "Disable Refresh"}
+          </button>
           <button
             type="button"
             className="playlist-card-menu-pin"

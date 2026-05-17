@@ -15,6 +15,13 @@
       "when": 1778588571000,
       "tag": "0001_add_last_refreshed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779028464116,
+      "tag": "0002_rare_arclight",
+      "breakpoints": true
     }
   ]
 }

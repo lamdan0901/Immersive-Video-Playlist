@@ -6,10 +6,12 @@ const refreshMock = vi.fn();
 const {
   createPlaylistFromUrlMock,
   softDeletePlaylistMock,
+  toggleAutoRefreshPlaylistMock,
   togglePinPlaylistMock,
 } = vi.hoisted(() => ({
   createPlaylistFromUrlMock: vi.fn(),
   softDeletePlaylistMock: vi.fn(),
+  toggleAutoRefreshPlaylistMock: vi.fn(),
   togglePinPlaylistMock: vi.fn(),
 }));
 
@@ -19,6 +21,7 @@ vi.mock("@/actions/import", () => ({
 
 vi.mock("@/actions/playlists", () => ({
   softDeletePlaylist: softDeletePlaylistMock,
+  toggleAutoRefreshPlaylist: toggleAutoRefreshPlaylistMock,
   togglePinPlaylist: togglePinPlaylistMock,
 }));
 
@@ -63,12 +66,13 @@ const playlists = [
     pinned: false,
     pinnedOrder: 0,
     version: 3,
+    autoRefreshDisabled: false,
     lastPlayedAt: null,
     updatedAt: "2026-05-09T08:15:00.000Z",
     activeSourceTitle: null,
     activeSourceLastPlayedEpisodeIndex: 0,
     activeSourceTotalEpisodes: 0,
-    allSources: [{ title: "Vietsub", episodeCount: 0 }],
+    allSources: [{ title: "Vietsub", totalEpisodes: 0 }],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #14532d, #1d4ed8)",
@@ -83,12 +87,13 @@ const playlists = [
     pinned: true,
     pinnedOrder: 1,
     version: 2,
+    autoRefreshDisabled: false,
     lastPlayedAt: "2026-05-08T10:00:00.000Z",
     updatedAt: "2026-05-08T10:00:00.000Z",
     activeSourceTitle: "Engsub",
     activeSourceLastPlayedEpisodeIndex: 1,
     activeSourceTotalEpisodes: 24,
-    allSources: [{ title: "Engsub", episodeCount: 24 }],
+    allSources: [{ title: "Engsub", totalEpisodes: 24 }],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #7f1d1d, #b45309)",
@@ -103,6 +108,7 @@ describe("PlaylistHomeClient", () => {
     refreshMock.mockReset();
     createPlaylistFromUrlMock.mockReset();
     softDeletePlaylistMock.mockReset();
+    toggleAutoRefreshPlaylistMock.mockReset();
     createPlaylistFromUrlMock.mockResolvedValue({
       ok: true,
       data: {
@@ -115,6 +121,10 @@ describe("PlaylistHomeClient", () => {
       data: undefined,
     });
     togglePinPlaylistMock.mockResolvedValue({
+      ok: true,
+      data: undefined,
+    });
+    toggleAutoRefreshPlaylistMock.mockResolvedValue({
       ok: true,
       data: undefined,
     });
@@ -289,6 +299,54 @@ describe("PlaylistHomeClient", () => {
         playlistId: "playlist-1",
         version: 3,
         pinned: true,
+      });
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a disable-refresh action on right click and disables auto-refresh", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    fireEvent.contextMenu(
+      screen.getByRole("link", { name: /fate chooses you/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Disable Refresh" }));
+
+    await waitFor(() => {
+      expect(toggleAutoRefreshPlaylistMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        playlistId: "playlist-1",
+        version: 3,
+        autoRefreshDisabled: true,
+      });
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an enable-refresh action for playlists with auto-refresh disabled", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    const disabledPlaylists = playlists.map((p) =>
+      p.id === "playlist-1" ? { ...p, autoRefreshDisabled: true } : p,
+    );
+
+    render(<PlaylistHomeClient playlists={disabledPlaylists} />);
+
+    fireEvent.contextMenu(
+      screen.getByRole("link", { name: /fate chooses you/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Enable Refresh" }));
+
+    await waitFor(() => {
+      expect(toggleAutoRefreshPlaylistMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        playlistId: "playlist-1",
+        version: 3,
+        autoRefreshDisabled: false,
       });
     });
 

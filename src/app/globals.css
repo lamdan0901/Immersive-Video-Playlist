@@ -344,6 +344,24 @@ select {
   box-shadow: var(--shadow-panel);
 }
 
+.playlist-card-menu-autorefresh {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+  cursor: pointer;
+}
+
+.playlist-card-menu-autorefresh:hover {
+  background: rgba(245, 158, 11, 0.24);
+}
+
+.playlist-card-menu-autorefresh:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .playlist-card-menu-pin {
   border: 0;
   border-radius: 6px;

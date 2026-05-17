@@ -129,6 +129,36 @@ export async function togglePinPlaylist(input: {
   return { ok: true, data: undefined };
 }
 
+export async function toggleAutoRefreshPlaylist(input: {
+  adminSecret: string;
+  playlistId: string;
+  version: number;
+  autoRefreshDisabled: boolean;
+}): Promise<ActionResult> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const result = await db
+    .update(playlists)
+    .set({
+      autoRefreshDisabled: input.autoRefreshDisabled,
+      version: input.version + 1,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(playlists.id, input.playlistId), eq(playlists.version, input.version), isNull(playlists.deletedAt)))
+    .returning({ id: playlists.id });
+
+  if (result.length === 0) {
+    return conflict("This playlist changed. Refresh before updating.");
+  }
+
+  await logMutation("playlist.update", `${input.autoRefreshDisabled ? "Disabled" : "Enabled"} auto-refresh for playlist`, input.playlistId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidateTag("playlists");
+  return { ok: true, data: undefined };
+}
+
 export async function updateSource(input: {
   adminSecret: string;
   playlistId: string;

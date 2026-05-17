@@ -9,6 +9,7 @@ export type PlaylistSummary = SearchablePlaylist & {
   banner: ReturnType<typeof chooseBanner>;
   updatedAt: string;
   version: number;
+  autoRefreshDisabled: boolean;
   activeSourceTitle: string | null;
   activeSourceLastPlayedEpisodeIndex: number;
   activeSourceTotalEpisodes: number;
@@ -55,6 +56,7 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
       pinned: playlist.pinned,
       pinnedOrder: playlist.pinnedOrder,
       version: playlist.version,
+      autoRefreshDisabled: playlist.autoRefreshDisabled,
       lastPlayedAt: playlist.lastPlayedAt?.toISOString() ?? null,
       updatedAt: playlist.updatedAt.toISOString(),
       activeSourceTitle: activeSource?.sourceTitle ?? null,

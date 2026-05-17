@@ -535,6 +535,7 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   const conditions = [
     isNull(sources.deletedAt),
     or(isNull(sources.lastRefreshedAt), lt(sources.lastRefreshedAt, threshold)),
+    eq(playlists.autoRefreshDisabled, false),
   ];
 
   if (playlistId) {
@@ -551,30 +552,38 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
       sourceUrl: sources.sourceUrl,
     })
     .from(sources)
+    .innerJoin(playlists, eq(sources.playlistId, playlists.id))
     .where(and(...conditions))
     .orderBy(asc(sources.lastRefreshedAt));
 
   const staleSources = await query;
 
   let touchedCount = 0;
-  for (const sourceRow of staleSources) {
-    if (signal?.aborted) {
-      break;
-    }
+  const concurrency = 4;
+  let nextIndex = 0;
 
-    try {
-      await performSourceRefresh(sourceRow, undefined, signal);
-      touchedCount++;
-    } catch (error) {
-      if (signal?.aborted || isAbortError(error)) {
-        break;
+  async function runNext(): Promise<void> {
+    while (nextIndex < staleSources.length && !signal?.aborted) {
+      const sourceRow = staleSources[nextIndex++];
+      try {
+        await performSourceRefresh(sourceRow, undefined, signal);
+        touchedCount++;
+      } catch (error) {
+        if (signal?.aborted || isAbortError(error)) {
+          return;
+        }
+        const message = asErrorMessage(error);
+        await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
+        touchedCount++;
       }
-
-      const message = asErrorMessage(error);
-      await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
-      touchedCount++;
     }
   }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, staleSources.length) },
+    () => runNext(),
+  );
+  await Promise.all(workers);
 
   return touchedCount;
 }

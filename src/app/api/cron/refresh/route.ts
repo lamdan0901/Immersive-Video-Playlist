@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autoRefreshPlaylist } from "@/actions/import";
+import { performAutoRefresh } from "@/actions/import";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    await autoRefreshPlaylist();
+    await performAutoRefresh();
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

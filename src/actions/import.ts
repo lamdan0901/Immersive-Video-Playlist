@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/db/client";
 import {
@@ -530,11 +530,8 @@ async function performSourceRefresh(
 }
 
 async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
-  const threshold = sql<Date>`now() - interval '1 hour'`;
-
   const conditions = [
     isNull(sources.deletedAt),
-    or(isNull(sources.lastRefreshedAt), lt(sources.lastRefreshedAt, threshold)),
     eq(playlists.autoRefreshDisabled, false),
   ];
 
@@ -588,20 +585,4 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   return touchedCount;
 }
 
-export async function autoRefreshPlaylist(
-  playlistId?: string,
-  signal?: AbortSignal,
-  options?: { revalidate?: boolean },
-) {
-  const touchedCount = await performAutoRefresh(playlistId, signal);
-
-  if (options?.revalidate !== false && touchedCount > 0) {
-    revalidatePath("/");
-    if (playlistId) {
-      revalidatePath(`/playlist/${playlistId}`);
-    }
-    revalidatePath("/trash");
-    revalidateTag("playlists");
-  }
-}
-export { fetchSourceJson };
+export { fetchSourceJson, performAutoRefresh };

@@ -604,22 +604,4 @@ export async function autoRefreshPlaylist(
     revalidateTag("playlists");
   }
 }
-
-export async function triggerAutoRefresh(input: {
-  playlistId?: string;
-}): Promise<ActionResult<{ refreshed: number }>> {
-  const touchedCount = await performAutoRefresh(input.playlistId);
-
-  if (touchedCount > 0) {
-    revalidatePath("/");
-    if (input.playlistId) {
-      revalidatePath(`/playlist/${input.playlistId}`);
-    }
-    revalidatePath("/trash");
-    revalidateTag("playlists");
-  }
-
-  return { ok: true, data: { refreshed: touchedCount } };
-}
-
 export { fetchSourceJson };

@@ -1,12 +1,10 @@
 import { Suspense } from "react";
-import { autoRefreshPlaylist } from "@/actions/import";
 import { getPlaylistSummaries } from "@/db/queries/home";
 import { PlaylistHomeClient } from "@/components/home/playlist-home-client";
 
 export const dynamic = "force-dynamic";
 
 async function HomeData() {
-  await autoRefreshPlaylist(undefined, undefined, { revalidate: false });
   const playlists = await getPlaylistSummaries();
   return <PlaylistHomeClient playlists={playlists} />;
 }

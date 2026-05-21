@@ -68,17 +68,19 @@ export function makeEpisodeKey(episode: { slug?: unknown; name?: unknown }, sour
 }
 
 function normalizeEpisodes(rows: RawEpisode[], sourceKey: string): ImportedEpisode[] {
-  return rows.map((episode, index) => {
-    const title = asString(episode.name) ?? `${index + 1}`;
-    return {
-      episodeKey: makeEpisodeKey(episode, sourceKey),
-      title,
-      slug: asString(episode.slug),
-      filename: asString(episode.filename),
-      embedUrl: asString(episode.link_embed) ?? asString(episode.embed),
-      m3u8Url: asString(episode.link_m3u8) ?? asString(episode.m3u8)
-    };
-  });
+  return rows
+    .map((episode, index) => {
+      const title = asString(episode.name) ?? `${index + 1}`;
+      return {
+        episodeKey: makeEpisodeKey(episode, sourceKey),
+        title,
+        slug: asString(episode.slug),
+        filename: asString(episode.filename),
+        embedUrl: asString(episode.link_embed) ?? asString(episode.embed),
+        m3u8Url: asString(episode.link_m3u8) ?? asString(episode.m3u8)
+      };
+    })
+    .filter((episode) => episode.embedUrl != null || episode.m3u8Url != null);
 }
 
 function normalizeServers(servers: RawServer[], sourceUrl: string): ImportedSource[] {

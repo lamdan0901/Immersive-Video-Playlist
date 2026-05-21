@@ -90,6 +90,30 @@ describe("normalizeImportedMovie", () => {
     expect(movie.sources[0].episodes).toHaveLength(2);
   });
 
+  it("drops episodes with no playable URLs", () => {
+    const payload = {
+      status: "success",
+      movie: {
+        name: "Gia Nghiep",
+        slug: "gia-nghiep",
+        thumb_url: "https://phim.nguonc.com/public/images/Post/5/gia-nghiep.jpg",
+        episodes: [
+          {
+            server_name: "Vietsub #1",
+            items: [
+              { name: "1", slug: "tap-1", embed: "https://embed.test/hash1", m3u8: "https://m3u8.test/1/hls.m3u8" },
+              { name: "12", slug: "tap-12" },
+            ]
+          }
+        ]
+      }
+    };
+
+    const movie = normalizeImportedMovie(payload, "https://phim.nguonc.com/api/film/gia-nghiep");
+    expect(movie.sources[0].episodes).toHaveLength(1);
+    expect(movie.sources[0].episodes[0].episodeKey).toBe("tap-1");
+  });
+
   it("filters OPhim to only Vietsub when multiple servers exist", () => {
     const multiServerPayload = {
       data: {

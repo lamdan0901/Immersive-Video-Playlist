@@ -388,6 +388,7 @@ export async function refreshSource(input: {
   try {
     await performSourceRefresh({ ...sourceRow, sourceUrl });
   } catch (error) {
+    console.error("[refreshSource] failed:", sourceUrl, error);
     const message = asErrorMessage(error);
     await updateFailedImport(input.sourceId, sourceUrl, message);
     revalidatePath(`/playlist/${input.playlistId}`);
@@ -435,7 +436,6 @@ async function performSourceRefresh(
     await tx
       .update(sources)
       .set({
-        sourceKey: importedSource.sourceKey,
         sourceTitle: importedSource.sourceTitle,
         sourceUrl,
         preferredLinkType: importedSource.preferredLinkType,
@@ -492,6 +492,7 @@ async function performSourceRefresh(
         )
         .onConflictDoUpdate({
           target: [episodes.sourceId, episodes.episodeKey],
+          targetWhere: sql`${episodes.deletedAt} IS NULL`,
           set: {
             title: sql`excluded.title`,
             slug: sql`excluded.slug`,
@@ -569,6 +570,7 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
         if (signal?.aborted || isAbortError(error)) {
           return;
         }
+        console.error("[performAutoRefresh] failed:", sourceRow.sourceUrl, error);
         const message = asErrorMessage(error);
         await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
         touchedCount++;

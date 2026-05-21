@@ -73,7 +73,7 @@ export const sources = pgTable("sources", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 }, (table) => ({
-  sourceKeyUnique: uniqueIndex("sources_playlist_source_key_unique").on(table.playlistId, table.sourceKey),
+  sourceKeyUnique: uniqueIndex("sources_playlist_source_key_unique").on(table.playlistId, table.sourceKey).where(sql`${table.deletedAt} IS NULL`),
   playlistOrderIdx: index("sources_playlist_order_idx").on(table.playlistId, table.sortOrder)
 }));
 
@@ -96,7 +96,7 @@ export const episodes = pgTable("episodes", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 }, (table) => ({
-  episodeKeyUnique: uniqueIndex("episodes_source_episode_key_unique").on(table.sourceId, table.episodeKey),
+  episodeKeyUnique: uniqueIndex("episodes_source_episode_key_unique").on(table.sourceId, table.episodeKey).where(sql`${table.deletedAt} IS NULL`),
   sourceOrderIdx: index("episodes_source_order_idx").on(table.sourceId, table.sortOrder)
 }));
 

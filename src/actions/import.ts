@@ -436,7 +436,7 @@ async function performSourceRefresh(
     await tx
       .update(sources)
       .set({
-        sourceTitle: importedSource.sourceTitle,
+        sourceTitle: sourceTitleFromUrl(sourceUrl),
         sourceUrl,
         preferredLinkType: importedSource.preferredLinkType,
         importError: null,

@@ -19,7 +19,11 @@ export type PlaylistSummary = SearchablePlaylist & {
 async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
   const playlistRows = await db.query.playlists.findMany({
     where: isNull(playlists.deletedAt),
-    orderBy: [desc(playlists.lastPlayedAt), desc(playlists.pinned), asc(playlists.pinnedOrder)],
+    orderBy: [
+      desc(playlists.lastPlayedAt),
+      desc(playlists.pinned),
+      asc(playlists.pinnedOrder),
+    ],
     columns: {
       id: true,
       title: true,
@@ -43,9 +47,9 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
           id: true,
           sourceTitle: true,
           lastPlayedEpisodeKey: true,
-        }
-      }
-    }
+        },
+      },
+    },
   });
 
   if (playlistRows.length === 0) return [];
@@ -54,12 +58,24 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
 
   const [countRows, indexRows] = await Promise.all([
     db
-      .select({ sourceId: episodes.sourceId, count: sql<number>`count(*)::int` })
+      .select({
+        sourceId: episodes.sourceId,
+        count: sql<number>`count(*)::int`,
+      })
       .from(episodes)
-      .where(and(isNull(episodes.deletedAt), sql`${episodes.sourceId} = ANY(${sql.param(allSourceIds)})`))
+      .where(
+        and(
+          isNull(episodes.deletedAt),
+          sql`${episodes.sourceId} = ANY(${sql.param(allSourceIds)})`,
+        ),
+      )
       .groupBy(episodes.sourceId),
     db
-      .select({ sourceId: episodes.sourceId, episodeKey: episodes.episodeKey, sortOrder: episodes.sortOrder })
+      .select({
+        sourceId: episodes.sourceId,
+        episodeKey: episodes.episodeKey,
+        sortOrder: episodes.sortOrder,
+      })
       .from(episodes)
       .where(
         and(
@@ -67,13 +83,17 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
           sql`(${episodes.sourceId}, ${episodes.episodeKey}) in (${sql.join(
             playlistRows
               .map((p) => {
-                const active = p.sources.find((s) => s.id === p.lastPlayedSourceId) ?? p.sources[0];
-                return active?.lastPlayedEpisodeKey ? sql`(${sql.param(active.id)}, ${sql.param(active.lastPlayedEpisodeKey)})` : null;
+                const active =
+                  p.sources.find((s) => s.id === p.lastPlayedSourceId) ??
+                  p.sources[0];
+                return active?.lastPlayedEpisodeKey
+                  ? sql`(${sql.param(active.id)}, ${sql.param(active.lastPlayedEpisodeKey)})`
+                  : null;
               })
-              .filter(Boolean),
-            sql`, `
-          )})`
-        )
+              .filter((x): x is NonNullable<typeof x> => x !== null),
+            sql`, `,
+          )})`,
+        ),
       ),
   ]);
 
@@ -83,9 +103,16 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
   return playlistRows.map((playlist) => {
     const sourceTitles = playlist.sources.map((source) => source.sourceTitle);
     const artworkUrls = extractArtworkUrls(playlist.metadata);
-    const activeSource = playlist.sources.find((s) => s.id === playlist.lastPlayedSourceId) ?? playlist.sources[0] ?? null;
-    const activeSourceTotalEpisodes = activeSource ? (countMap.get(activeSource.id) ?? 0) : 0;
-    const activeSourceLastPlayedEpisodeIndex = activeSource ? (indexMap.get(activeSource.id) ?? -1) : -1;
+    const activeSource =
+      playlist.sources.find((s) => s.id === playlist.lastPlayedSourceId) ??
+      playlist.sources[0] ??
+      null;
+    const activeSourceTotalEpisodes = activeSource
+      ? (countMap.get(activeSource.id) ?? 0)
+      : 0;
+    const activeSourceLastPlayedEpisodeIndex = activeSource
+      ? (indexMap.get(activeSource.id) ?? -1)
+      : -1;
 
     const allSources = playlist.sources.map((source) => ({
       title: source.sourceTitle,
@@ -104,15 +131,18 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
       lastPlayedAt: playlist.lastPlayedAt?.toISOString() ?? null,
       updatedAt: playlist.updatedAt.toISOString(),
       activeSourceTitle: activeSource?.sourceTitle ?? null,
-      activeSourceLastPlayedEpisodeIndex: activeSourceLastPlayedEpisodeIndex >= 0 ? activeSourceLastPlayedEpisodeIndex : 0,
+      activeSourceLastPlayedEpisodeIndex:
+        activeSourceLastPlayedEpisodeIndex >= 0
+          ? activeSourceLastPlayedEpisodeIndex
+          : 0,
       activeSourceTotalEpisodes,
       allSources,
       banner: chooseBanner({
         title: playlist.title,
         bannerOverrideUrl: playlist.bannerOverrideUrl,
         derivedImageUrl: playlist.derivedImageUrl,
-        sourceImages: artworkUrls
-      })
+        sourceImages: artworkUrls,
+      }),
     };
   });
 }

@@ -29,7 +29,7 @@ it("renders the active episode progress", () => {
         activeSourceTitle: "Vietsub",
         activeSourceLastPlayedEpisodeIndex: 2,
         activeSourceTotalEpisodes: 12,
-        allSources: [{ title: "Vietsub", episodeCount: 12 }],
+        allSources: [{ title: "Vietsub", totalEpisodes: 12 }],
         banner: {
           type: "gradient",
           value: "linear-gradient(135deg, #14532d, #1d4ed8)",

@@ -16,7 +16,14 @@ export async function POST(request: Request) {
   const currentKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
   const nextKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
+  console.log("[cron/refresh] POST received", {
+    hasCurrentKey: !!currentKey,
+    hasNextKey: !!nextKey,
+    url: request.url,
+  });
+
   if (!currentKey || !nextKey) {
+    console.error("[cron/refresh] QStash keys missing");
     return NextResponse.json(
       { error: "QStash keys not configured" },
       { status: 500 },
@@ -32,7 +39,9 @@ export async function POST(request: Request) {
     const signature = request.headers.get("upstash-signature") ?? "";
     const body = await request.text();
     await receiver.verify({ signature, body });
-  } catch {
+    console.log("[cron/refresh] QStash signature verified");
+  } catch (err) {
+    console.error("[cron/refresh] QStash signature failed", err);
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

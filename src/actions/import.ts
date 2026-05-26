@@ -584,6 +584,12 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   );
   await Promise.all(workers);
 
+  if (touchedCount > 0) {
+    revalidatePath("/");
+    revalidatePath("/trash");
+    revalidateTag("playlists");
+  }
+
   return touchedCount;
 }
 

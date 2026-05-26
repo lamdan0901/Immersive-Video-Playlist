@@ -4,10 +4,12 @@ import { performAutoRefresh } from "@/actions/import";
 
 async function runRefresh() {
   try {
-    await performAutoRefresh();
-    return NextResponse.json({ ok: true });
+    const touchedCount = await performAutoRefresh();
+    console.log("[cron/refresh] completed, touched:", touchedCount);
+    return NextResponse.json({ ok: true, touchedCount });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[cron/refresh] error:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -258,6 +258,10 @@ describe("PlaylistHomeClient", () => {
 
   it("fetches NguonC imports in the browser and sends the payload to the server action", async () => {
     localStorage.setItem("adminSecret", "top-secret");
+    createPlaylistFromUrlMock.mockResolvedValueOnce({
+      ok: false,
+      error: "Import request failed with 403",
+    });
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
@@ -276,6 +280,10 @@ describe("PlaylistHomeClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
 
     await waitFor(() => {
+      expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        sourceUrl: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      });
       expect(fetchImportPayloadInBrowserMock).toHaveBeenCalledWith(
         "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
       );
@@ -288,7 +296,37 @@ describe("PlaylistHomeClient", () => {
       });
     });
 
-    expect(createPlaylistFromUrlMock).not.toHaveBeenCalled();
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not use browser fallback when server import succeeds for NguonC", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Add playlist" }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
+    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
+      target: {
+        value: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
+
+    await waitFor(() => {
+      expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        sourceUrl: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      });
+    });
+
+    expect(fetchImportPayloadInBrowserMock).not.toHaveBeenCalled();
+    expect(createPlaylistFromImportedJsonMock).not.toHaveBeenCalled();
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 

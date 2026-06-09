@@ -131,6 +131,7 @@ vi.mock("./playlists", () => ({
 describe("createSourceFromUrl", () => {
   beforeEach(() => {
     process.env.ADMIN_SECRET = "secret";
+    delete process.env.NGUONC_PROXY_API_BASE_URL;
     playlistInsertValues.length = 0;
     sourceInsertValues.length = 0;
     transactionMock.mockClear();
@@ -250,6 +251,26 @@ describe("fetchSourceJson", () => {
 
     expect((payload as { movie: { name: string } }).movie.name).toBe(
       "Huyền Thoại Lính Bếp",
+    );
+  });
+
+  it("uses the configured NguonC relay for server-side fetches", async () => {
+    process.env.NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => nguonc,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchSourceJson("https://phim.nguonc.com/api/film/huyen-thoai-linh-bep");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://relay.example.com/api/film/huyen-thoai-linh-bep",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: undefined,
+      }),
     );
   });
 });

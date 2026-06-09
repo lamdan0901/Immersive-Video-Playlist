@@ -57,6 +57,38 @@ function shouldDisableAutoRefresh(sourceUrl: string) {
   return isNguoncUrl(sourceUrl);
 }
 
+function extractNguoncSlug(sourceUrl: string): string | null {
+  try {
+    const url = new URL(sourceUrl);
+    if (!url.hostname.includes("nguonc")) {
+      return null;
+    }
+
+    if (url.pathname.startsWith("/api/film/")) {
+      return url.pathname.slice(10).replace(/^\/+|\/+$/g, "") || null;
+    }
+
+    if (url.pathname.startsWith("/phim/")) {
+      return url.pathname.slice(6).replace(/^\/+|\/+$/g, "") || null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveNguoncRelayFetchUrl(sourceUrl: string): string {
+  const relayBaseUrl = process.env.NGUONC_PROXY_API_BASE_URL?.trim();
+  const slug = extractNguoncSlug(sourceUrl);
+
+  if (!relayBaseUrl || !slug || !isNguoncUrl(sourceUrl)) {
+    return sourceUrl;
+  }
+
+  return `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
+}
+
 async function createPlaylistFromImportedJsonInternal(
   sourceUrl: string,
   importedJson: unknown,
@@ -151,12 +183,13 @@ async function createPlaylistFromImportedJsonInternal(
 }
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
-  const response = await fetch(url, {
+  const fetchUrl = resolveNguoncRelayFetchUrl(url);
+  const response = await fetch(fetchUrl, {
     cache: "no-store",
-    headers: buildImportRequestHeaders(
-      url,
-      "application/json,text/plain,*/*",
-    ),
+    headers:
+      fetchUrl === url
+        ? buildImportRequestHeaders(url, "application/json,text/plain,*/*")
+        : undefined,
     signal,
   });
 

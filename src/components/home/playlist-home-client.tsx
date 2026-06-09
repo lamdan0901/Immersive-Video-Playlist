@@ -40,6 +40,10 @@ export function PlaylistHomeClient({
       : "Import failed";
   }
 
+  function isUpstreamImportBlock(errorMessage: string) {
+    return /^Import request failed with (403|429)$/.test(errorMessage.trim());
+  }
+
   async function handleCreatePlaylist(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitLockRef.current) {
@@ -58,19 +62,23 @@ export function PlaylistHomeClient({
 
     try {
       const trimmedSourceUrl = sourceUrl.trim();
-      const result = isNguoncUrl(trimmedSourceUrl)
-        ? await (async () => {
-            const payload = await fetchImportPayloadInBrowser(trimmedSourceUrl);
-            return createPlaylistFromImportedJson({
-              adminSecret,
-              sourceUrl: payload.sourceUrl,
-              importedJson: payload.importedJson,
-            });
-          })()
-        : await createPlaylistFromUrl({
-            adminSecret,
-            sourceUrl: trimmedSourceUrl,
-          });
+      let result = await createPlaylistFromUrl({
+        adminSecret,
+        sourceUrl: trimmedSourceUrl,
+      });
+
+      if (
+        !result.ok
+        && isNguoncUrl(trimmedSourceUrl)
+        && isUpstreamImportBlock(result.error)
+      ) {
+        const payload = await fetchImportPayloadInBrowser(trimmedSourceUrl);
+        result = await createPlaylistFromImportedJson({
+          adminSecret,
+          sourceUrl: payload.sourceUrl,
+          importedJson: payload.importedJson,
+        });
+      }
 
       if (!result.ok) {
         console.error("[createPlaylistFromUrl] failed:", result.error);

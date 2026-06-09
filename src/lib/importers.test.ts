@@ -1,7 +1,10 @@
 import ophim from "@/test/fixtures/sample-ophim.json";
 import nguonc from "@/test/fixtures/sample-nguonc.json";
+import { describe, expect, it, vi } from "vitest";
 import {
   extractNguoncPayloadFromHtml,
+  fetchImportPayloadInBrowser,
+  isNguoncUrl,
   makeEpisodeKey,
   normalizeImportedMovie,
   resolveApiUrl,
@@ -200,6 +203,40 @@ describe("resolveNguoncPageUrl", () => {
   it("keeps NguonC page URLs unchanged", () => {
     expect(resolveNguoncPageUrl("https://phim.nguonc.com/phim/vuong-mien-hoan-hao"))
       .toBe("https://phim.nguonc.com/phim/vuong-mien-hoan-hao");
+  });
+});
+
+describe("isNguoncUrl", () => {
+  it("detects NguonC hosts", () => {
+    expect(isNguoncUrl("https://phim.nguonc.com/phim/vuong-mien-hoan-hao")).toBe(
+      true,
+    );
+    expect(isNguoncUrl("https://ophim1.com/v1/api/phim/test-movie")).toBe(false);
+  });
+});
+
+describe("fetchImportPayloadInBrowser", () => {
+  it("resolves page URLs to API URLs before fetching", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => nguonc,
+      }),
+    );
+
+    const result = await fetchImportPayloadInBrowser(
+      "https://phim.nguonc.com/phim/vuong-mien-hoan-hao",
+    );
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
+      { cache: "no-store" },
+    );
+    expect(result.sourceUrl).toBe(
+      "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
+    );
+    expect((result.importedJson as { status: string }).status).toBe("success");
   });
 });
 

@@ -1,15 +1,22 @@
 import ophim from "@/test/fixtures/sample-ophim.json";
+import nguonc from "@/test/fixtures/sample-nguonc.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { episodes, playlists, sources, sourceSnapshots } from "@/db/schema";
-import { createSourceFromUrl, fetchSourceJson } from "./import";
+import {
+  createPlaylistFromImportedJson,
+  createSourceFromUrl,
+  fetchSourceJson,
+} from "./import";
 
 const {
   logMutationMock,
+  playlistInsertValues,
   revalidatePathMock,
   revalidateTagMock,
   sourceInsertValues,
   transactionMock,
 } = vi.hoisted(() => {
+  const playlistValues: Record<string, unknown>[] = [];
   const sourceValues: Record<string, unknown>[] = [];
 
   const transaction = vi.fn(async (callback: (tx: {
@@ -40,6 +47,13 @@ const {
       }),
       insert: (table) => ({
         values: (values) => {
+          if (table === playlists) {
+            playlistValues.push(values as Record<string, unknown>);
+            return {
+              returning: async () => [{ id: "playlist-1" }],
+            };
+          }
+
           if (table === sources) {
             sourceValues.push(values as Record<string, unknown>);
             return {
@@ -89,6 +103,7 @@ const {
 
   return {
     logMutationMock: vi.fn(),
+    playlistInsertValues: playlistValues,
     revalidatePathMock: vi.fn(),
     revalidateTagMock: vi.fn(),
     sourceInsertValues: sourceValues,
@@ -116,6 +131,7 @@ vi.mock("./playlists", () => ({
 describe("createSourceFromUrl", () => {
   beforeEach(() => {
     process.env.ADMIN_SECRET = "secret";
+    playlistInsertValues.length = 0;
     sourceInsertValues.length = 0;
     transactionMock.mockClear();
     logMutationMock.mockReset();
@@ -180,6 +196,21 @@ describe("createSourceFromUrl", () => {
 
     expect(result.ok).toBe(true);
     expect(sourceInsertValues).not.toHaveLength(0);
+    expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
+      "phim.nguonc.com",
+    ]);
+  });
+
+  it("creates NguonC playlists from browser-fetched JSON and disables auto-refresh", async () => {
+    const result = await createPlaylistFromImportedJson({
+      adminSecret: "secret",
+      sourceUrl: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      importedJson: nguonc,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(playlistInsertValues).not.toHaveLength(0);
+    expect(playlistInsertValues[0]?.autoRefreshDisabled).toBe(true);
     expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
       "phim.nguonc.com",
     ]);

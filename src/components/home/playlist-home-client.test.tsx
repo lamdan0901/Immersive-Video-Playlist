@@ -4,19 +4,29 @@ import { PlaylistHomeClient } from "./playlist-home-client";
 
 const refreshMock = vi.fn();
 const {
+  createPlaylistFromImportedJsonMock,
   createPlaylistFromUrlMock,
+  fetchImportPayloadInBrowserMock,
   softDeletePlaylistMock,
   toggleAutoRefreshPlaylistMock,
   togglePinPlaylistMock,
 } = vi.hoisted(() => ({
+  createPlaylistFromImportedJsonMock: vi.fn(),
   createPlaylistFromUrlMock: vi.fn(),
+  fetchImportPayloadInBrowserMock: vi.fn(),
   softDeletePlaylistMock: vi.fn(),
   toggleAutoRefreshPlaylistMock: vi.fn(),
   togglePinPlaylistMock: vi.fn(),
 }));
 
 vi.mock("@/actions/import", () => ({
+  createPlaylistFromImportedJson: createPlaylistFromImportedJsonMock,
   createPlaylistFromUrl: createPlaylistFromUrlMock,
+}));
+
+vi.mock("@/lib/importers", () => ({
+  fetchImportPayloadInBrowser: fetchImportPayloadInBrowserMock,
+  isNguoncUrl: (url: string) => url.includes("nguonc"),
 }));
 
 vi.mock("@/actions/playlists", () => ({
@@ -106,14 +116,29 @@ describe("PlaylistHomeClient", () => {
   beforeEach(() => {
     localStorage.clear();
     refreshMock.mockReset();
+    createPlaylistFromImportedJsonMock.mockReset();
     createPlaylistFromUrlMock.mockReset();
+    fetchImportPayloadInBrowserMock.mockReset();
     softDeletePlaylistMock.mockReset();
     toggleAutoRefreshPlaylistMock.mockReset();
+    createPlaylistFromImportedJsonMock.mockResolvedValue({
+      ok: true,
+      data: {
+        playlistId: "playlist-2",
+        message: "Imported playlist",
+      },
+    });
     createPlaylistFromUrlMock.mockResolvedValue({
       ok: true,
       data: {
         playlistId: "playlist-2",
         message: "Imported playlist",
+      },
+    });
+    fetchImportPayloadInBrowserMock.mockResolvedValue({
+      sourceUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+      importedJson: {
+        status: "success",
       },
     });
     softDeletePlaylistMock.mockResolvedValue({
@@ -228,6 +253,42 @@ describe("PlaylistHomeClient", () => {
       expect(createPlaylistFromUrlMock).toHaveBeenCalledTimes(1);
     });
 
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches NguonC imports in the browser and sends the payload to the server action", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(<PlaylistHomeClient playlists={playlists} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Add playlist" }),
+      ).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
+    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
+      target: {
+        value: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
+
+    await waitFor(() => {
+      expect(fetchImportPayloadInBrowserMock).toHaveBeenCalledWith(
+        "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+      );
+      expect(createPlaylistFromImportedJsonMock).toHaveBeenCalledWith({
+        adminSecret: "top-secret",
+        sourceUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+        importedJson: {
+          status: "success",
+        },
+      });
+    });
+
+    expect(createPlaylistFromUrlMock).not.toHaveBeenCalled();
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 

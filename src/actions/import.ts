@@ -14,6 +14,7 @@ import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import {
   buildImportRequestHeaders,
   extractNguoncPayloadFromHtml,
+  isNguoncUrl,
   normalizeImportedMovie,
   resolveApiUrl,
   resolveNguoncPageUrl,
@@ -50,6 +51,103 @@ function sourceTitleFromUrl(sourceUrl: string) {
   } catch {
     return "New Source";
   }
+}
+
+function shouldDisableAutoRefresh(sourceUrl: string) {
+  return isNguoncUrl(sourceUrl);
+}
+
+async function createPlaylistFromImportedJsonInternal(
+  sourceUrl: string,
+  importedJson: unknown,
+): Promise<ActionResult<CreatePlaylistSuccess>> {
+  const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
+
+  if (importedMovie.sources.length === 0) {
+    return {
+      ok: false,
+      error: "Imported payload does not contain any sources.",
+    };
+  }
+
+  const now = new Date();
+  const playlistId = await db.transaction(async (tx) => {
+    const insertedPlaylists = await tx
+      .insert(playlists)
+      .values({
+        title: importedMovie.title,
+        slug: importedMovie.slug,
+        derivedImageUrl: pickDerivedImage(importedMovie),
+        metadata: importedMovie.metadata,
+        autoRefreshDisabled: shouldDisableAutoRefresh(sourceUrl),
+        updatedAt: now,
+      })
+      .returning({ id: playlists.id });
+
+    const playlistId = insertedPlaylists[0]?.id;
+    if (!playlistId) {
+      throw new Error("Playlist import failed");
+    }
+
+    for (const [index, importedSource] of importedMovie.sources.entries()) {
+      const insertedSources = await tx
+        .insert(sources)
+        .values({
+          playlistId,
+          sourceKey: importedSource.sourceKey,
+          sourceTitle: sourceTitleFromUrl(sourceUrl),
+          sourceUrl: importedSource.sourceUrl,
+          preferredLinkType: importedSource.preferredLinkType,
+          sortOrder: index,
+          importError: null,
+          lastRefreshedAt: now,
+          metadata: importedSource as unknown as Record<string, unknown>,
+          updatedAt: now,
+        })
+        .returning({ id: sources.id });
+
+      const sourceId = insertedSources[0]?.id;
+      if (!sourceId) {
+        throw new Error(`Failed to insert source ${importedSource.sourceKey}`);
+      }
+
+      if (importedSource.episodes.length > 0) {
+        await tx.insert(episodes).values(
+          importedSource.episodes.map((episode, episodeIndex) => ({
+            sourceId,
+            episodeKey: episode.episodeKey,
+            title: episode.title,
+            slug: episode.slug,
+            filename: episode.filename,
+            embedUrl: episode.embedUrl,
+            m3u8Url: episode.m3u8Url,
+            sortOrder: episodeIndex,
+          })),
+        );
+      }
+
+      await writeSnapshot(tx, sourceId, importedSource);
+    }
+
+    return playlistId;
+  });
+
+  await logMutation(
+    "playlist.create",
+    `Imported playlist ${importedMovie.title}`,
+    playlistId,
+  );
+  revalidatePath("/");
+  revalidatePath(`/playlist/${playlistId}`);
+  revalidateTag("playlists");
+
+  return {
+    ok: true,
+    data: {
+      playlistId,
+      message: `Imported playlist ${importedMovie.title}.`,
+    },
+  };
 }
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
@@ -160,97 +258,42 @@ export async function createPlaylistFromUrl(input: {
   const sourceUrl = resolveApiUrl(rawUrl);
 
   try {
-    const importedJson = await fetchSourceJson(sourceUrl);
-    const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
-
-    if (importedMovie.sources.length === 0) {
-      return {
-        ok: false,
-        error: "Imported payload does not contain any sources.",
-      };
-    }
-
-    const now = new Date();
-    const playlistId = await db.transaction(async (tx) => {
-      const insertedPlaylists = await tx
-        .insert(playlists)
-        .values({
-          title: importedMovie.title,
-          slug: importedMovie.slug,
-          derivedImageUrl: pickDerivedImage(importedMovie),
-          metadata: importedMovie.metadata,
-          updatedAt: now,
-        })
-        .returning({ id: playlists.id });
-
-      const playlistId = insertedPlaylists[0]?.id;
-      if (!playlistId) {
-        throw new Error("Playlist import failed");
-      }
-
-      for (const [index, importedSource] of importedMovie.sources.entries()) {
-        const insertedSources = await tx
-          .insert(sources)
-          .values({
-            playlistId,
-            sourceKey: importedSource.sourceKey,
-            sourceTitle: sourceTitleFromUrl(sourceUrl),
-            sourceUrl: importedSource.sourceUrl,
-            preferredLinkType: importedSource.preferredLinkType,
-            sortOrder: index,
-            importError: null,
-            lastRefreshedAt: now,
-            metadata: importedSource as unknown as Record<string, unknown>,
-            updatedAt: now,
-          })
-          .returning({ id: sources.id });
-
-        const sourceId = insertedSources[0]?.id;
-        if (!sourceId) {
-          throw new Error(
-            `Failed to insert source ${importedSource.sourceKey}`,
-          );
-        }
-
-        if (importedSource.episodes.length > 0) {
-          await tx.insert(episodes).values(
-            importedSource.episodes.map((episode, episodeIndex) => ({
-              sourceId,
-              episodeKey: episode.episodeKey,
-              title: episode.title,
-              slug: episode.slug,
-              filename: episode.filename,
-              embedUrl: episode.embedUrl,
-              m3u8Url: episode.m3u8Url,
-              sortOrder: episodeIndex,
-            })),
-          );
-        }
-
-        await writeSnapshot(tx, sourceId, importedSource);
-      }
-
-      return playlistId;
-    });
-
-    await logMutation(
-      "playlist.create",
-      `Imported playlist ${importedMovie.title}`,
-      playlistId,
+    return await createPlaylistFromImportedJsonInternal(
+      sourceUrl,
+      await fetchSourceJson(sourceUrl),
     );
-    revalidatePath("/");
-    revalidatePath(`/playlist/${playlistId}`);
-    revalidateTag("playlists");
-
-    return {
-      ok: true,
-      data: {
-        playlistId,
-        message: `Imported playlist ${importedMovie.title}.`,
-      },
-    };
   } catch (error) {
     console.error("[createPlaylistFromUrl] failed:", input.sourceUrl, error);
+    return { ok: false, error: asErrorMessage(error) };
+  }
+}
+
+export async function createPlaylistFromImportedJson(input: {
+  adminSecret: string;
+  sourceUrl: string;
+  importedJson: unknown;
+}): Promise<ActionResult<CreatePlaylistSuccess>> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const rawUrl = input.sourceUrl.trim();
+  if (!rawUrl) {
+    return { ok: false, error: "Source URL is required before import." };
+  }
+
+  const sourceUrl = resolveApiUrl(rawUrl);
+
+  try {
+    return await createPlaylistFromImportedJsonInternal(
+      sourceUrl,
+      input.importedJson,
+    );
+  } catch (error) {
+    console.error(
+      "[createPlaylistFromImportedJson] failed:",
+      input.sourceUrl,
+      error,
+    );
     return { ok: false, error: asErrorMessage(error) };
   }
 }

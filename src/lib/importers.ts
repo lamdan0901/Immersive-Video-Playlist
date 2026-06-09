@@ -49,6 +49,14 @@ export function resolveNguoncPageUrl(sourceUrl: string): string | null {
   }
 }
 
+export function isNguoncUrl(sourceUrl: string): boolean {
+  try {
+    return new URL(sourceUrl).hostname.includes("nguonc");
+  } catch {
+    return false;
+  }
+}
+
 export function buildImportRequestHeaders(
   sourceUrl: string,
   accept: string,
@@ -71,6 +79,25 @@ export function buildImportRequestHeaders(
       "user-agent": IMPORT_USER_AGENT,
     };
   }
+}
+
+export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
+  sourceUrl: string;
+  importedJson: unknown;
+}> {
+  const sourceUrl = resolveApiUrl(rawUrl);
+  const response = await fetch(sourceUrl, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Import request failed with ${response.status}`);
+  }
+
+  return {
+    sourceUrl,
+    importedJson: await response.json(),
+  };
 }
 
 type RawEpisode = {

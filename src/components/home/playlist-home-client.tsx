@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPlaylistFromUrl } from "@/actions/import";
+import {
+  createPlaylistFromImportedJson,
+  createPlaylistFromUrl,
+} from "@/actions/import";
 import type { PlaylistSummary } from "@/db/queries/home";
+import { fetchImportPayloadInBrowser, isNguoncUrl } from "@/lib/importers";
 import { rankPlaylists } from "@/lib/relevance";
 import { AdminUnlockModal } from "@/components/admin/admin-unlock-modal";
 import { PlaylistCard } from "./playlist-card";
@@ -30,6 +34,12 @@ export function PlaylistHomeClient({
     setIsUnlocked(Boolean(localStorage.getItem("adminSecret")));
   }, []);
 
+  function asErrorMessage(error: unknown) {
+    return error instanceof Error && error.message.trim()
+      ? error.message
+      : "Import failed";
+  }
+
   async function handleCreatePlaylist(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitLockRef.current) {
@@ -47,10 +57,20 @@ export function PlaylistHomeClient({
     setSubmitError("");
 
     try {
-      const result = await createPlaylistFromUrl({
-        adminSecret,
-        sourceUrl: sourceUrl.trim(),
-      });
+      const trimmedSourceUrl = sourceUrl.trim();
+      const result = isNguoncUrl(trimmedSourceUrl)
+        ? await (async () => {
+            const payload = await fetchImportPayloadInBrowser(trimmedSourceUrl);
+            return createPlaylistFromImportedJson({
+              adminSecret,
+              sourceUrl: payload.sourceUrl,
+              importedJson: payload.importedJson,
+            });
+          })()
+        : await createPlaylistFromUrl({
+            adminSecret,
+            sourceUrl: trimmedSourceUrl,
+          });
 
       if (!result.ok) {
         console.error("[createPlaylistFromUrl] failed:", result.error);
@@ -61,6 +81,9 @@ export function PlaylistHomeClient({
       setSourceUrl("");
       setShowAddForm(false);
       router.refresh();
+    } catch (error) {
+      console.error("[handleCreatePlaylist] failed:", error);
+      setSubmitError(asErrorMessage(error));
     } finally {
       submitLockRef.current = false;
       setIsSubmitting(false);

@@ -210,6 +210,7 @@ export async function createPlaylistFromUrl(input: {
       },
     };
   } catch (error) {
+    console.error("[createPlaylistFromUrl] failed:", input.sourceUrl, error);
     return { ok: false, error: asErrorMessage(error) };
   }
 }
@@ -343,6 +344,7 @@ export async function createSourceFromUrl(input: {
 
     return { ok: true, data: { message: summary } };
   } catch (error) {
+    console.error("[createSourceFromUrl] failed:", input.sourceUrl, error);
     return { ok: false, error: asErrorMessage(error) };
   }
 }

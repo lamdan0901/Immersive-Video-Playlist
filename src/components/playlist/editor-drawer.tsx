@@ -157,6 +157,10 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
       sourceUrl: trimmedUrl,
     });
 
+    if (!result.ok) {
+      console.error("[createSourceFromUrl] failed:", result.error);
+    }
+
     setStatus(result.ok ? result.data.message : result.error);
     if (result.ok) {
       router.refresh();

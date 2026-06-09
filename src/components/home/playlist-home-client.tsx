@@ -53,6 +53,7 @@ export function PlaylistHomeClient({
       });
 
       if (!result.ok) {
+        console.error("[createPlaylistFromUrl] failed:", result.error);
         setSubmitError(result.error);
         return;
       }

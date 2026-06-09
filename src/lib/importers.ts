@@ -2,6 +2,7 @@ import type { ImportedEpisode, ImportedMovie, ImportedSource, LinkType } from ".
 
 const IMPORT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
+const BROWSER_IMPORT_RETRY_DELAY_MS = 1000;
 
 export function resolveApiUrl(sourceUrl: string): string {
   try {
@@ -86,18 +87,34 @@ export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
   importedJson: unknown;
 }> {
   const sourceUrl = resolveApiUrl(rawUrl);
-  const response = await fetch(sourceUrl, {
-    cache: "no-store",
-  });
+  let lastStatus = 0;
 
-  if (!response.ok) {
-    throw new Error(`Import request failed with ${response.status}`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch(sourceUrl);
+    if (response.ok) {
+      return {
+        sourceUrl,
+        importedJson: await response.json(),
+      };
+    }
+
+    lastStatus = response.status;
+    if (response.status !== 429 || attempt === 1) {
+      break;
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, BROWSER_IMPORT_RETRY_DELAY_MS);
+    });
   }
 
-  return {
-    sourceUrl,
-    importedJson: await response.json(),
-  };
+  if (lastStatus === 429) {
+    throw new Error(
+      "NguonC is temporarily rate-limiting this import (429). Please wait 1–2 minutes and try again.",
+    );
+  }
+
+  throw new Error(`Import request failed with ${lastStatus}`);
 }
 
 type RawEpisode = {

@@ -231,11 +231,32 @@ describe("fetchImportPayloadInBrowser", () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
-      { cache: "no-store" },
     );
     expect(result.sourceUrl).toBe(
       "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
     );
+    expect((result.importedJson as { status: string }).status).toBe("success");
+  });
+
+  it("retries once after a 429 before failing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => nguonc,
+        }),
+    );
+
+    const startedAt = Date.now();
+    const result = await fetchImportPayloadInBrowser(
+      "https://phim.nguonc.com/phim/vuong-mien-hoan-hao",
+    );
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(900);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect((result.importedJson as { status: string }).status).toBe("success");
   });
 });

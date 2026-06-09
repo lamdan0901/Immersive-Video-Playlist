@@ -1,5 +1,8 @@
 import type { ImportedEpisode, ImportedMovie, ImportedSource, LinkType } from "./types";
 
+const IMPORT_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
+
 export function resolveApiUrl(sourceUrl: string): string {
   try {
     const url = new URL(sourceUrl);
@@ -21,6 +24,52 @@ export function resolveApiUrl(sourceUrl: string): string {
     return sourceUrl;
   } catch {
     return sourceUrl;
+  }
+}
+
+export function resolveNguoncPageUrl(sourceUrl: string): string | null {
+  try {
+    const url = new URL(sourceUrl);
+    if (!url.hostname.includes("nguonc")) {
+      return null;
+    }
+
+    if (url.pathname.startsWith("/phim/")) {
+      return url.toString();
+    }
+
+    if (url.pathname.startsWith("/api/film/")) {
+      const slug = url.pathname.slice(10).replace(/^\/+|\/+$/g, "");
+      return slug ? `https://${url.hostname}/phim/${slug}` : null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildImportRequestHeaders(
+  sourceUrl: string,
+  accept: string,
+): HeadersInit {
+  try {
+    const url = new URL(sourceUrl);
+    const referer = resolveNguoncPageUrl(sourceUrl) ?? `${url.origin}/`;
+
+    return {
+      accept,
+      "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+      origin: url.origin,
+      referer,
+      "user-agent": IMPORT_USER_AGENT,
+    };
+  } catch {
+    return {
+      accept,
+      "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+      "user-agent": IMPORT_USER_AGENT,
+    };
   }
 }
 
@@ -46,6 +95,133 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function matchFirst(html: string, pattern: RegExp): string | null {
+  const match = pattern.exec(html);
+  return match?.[1]?.trim() ?? null;
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function stripTags(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function absoluteUrl(url: string | null, baseUrl: string): string | null {
+  if (!url) return null;
+
+  try {
+    return new URL(url, baseUrl).toString();
+  } catch {
+    return url;
+  }
+}
+
+function parseNguoncImageMeta(
+  rawValue: string | null,
+  pageUrl: string,
+): { thumbUrl: string | null; posterUrl: string | null } {
+  if (!rawValue) {
+    return { thumbUrl: null, posterUrl: null };
+  }
+
+  const decoded = decodeHtmlEntities(rawValue);
+  if (decoded.startsWith("{")) {
+    try {
+      const imageRecord = JSON.parse(decoded) as Record<string, unknown>;
+      const thumbUrl =
+        absoluteUrl(
+          asString(imageRecord.original) ?? asString(imageRecord.resize),
+          pageUrl,
+        ) ?? absoluteUrl(decoded, pageUrl);
+      const posterUrl = absoluteUrl(asString(imageRecord.poster), pageUrl);
+      return { thumbUrl, posterUrl };
+    } catch {
+      return { thumbUrl: absoluteUrl(decoded, pageUrl), posterUrl: null };
+    }
+  }
+
+  return { thumbUrl: absoluteUrl(decoded, pageUrl), posterUrl: null };
+}
+
+type NguoncHtmlServer = {
+  server_name?: unknown;
+  list?: RawEpisode[];
+  items?: RawEpisode[];
+};
+
+export function extractNguoncPayloadFromHtml(
+  html: string,
+  sourceUrl: string,
+): Record<string, unknown> {
+  const pageUrl = resolveNguoncPageUrl(sourceUrl) ?? sourceUrl;
+  const canonicalUrl =
+    matchFirst(html, /<link[^>]+rel="canonical"[^>]+href="([^"]+)"/i) ??
+    pageUrl;
+  const slug = (() => {
+    try {
+      const pathname = new URL(canonicalUrl).pathname;
+      return pathname.startsWith("/phim/")
+        ? pathname.slice(6).replace(/^\/+|\/+$/g, "")
+        : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const title = matchFirst(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
+
+  const normalizedTitle =
+    (title ? stripTags(title) : null) ??
+    matchFirst(
+      html,
+      /<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i,
+    )
+      ?.split(" - ")[0]
+      ?.trim() ??
+    slug ??
+    "Untitled Playlist";
+
+  const { thumbUrl, posterUrl } = parseNguoncImageMeta(
+    matchFirst(html, /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i),
+    canonicalUrl,
+  );
+
+  const rawEpisodes = matchFirst(html, /var\s+episodes\s*=\s*(\[[\s\S]*?\]);/i);
+  if (!rawEpisodes) {
+    throw new Error("Unsupported import response");
+  }
+
+  const parsedEpisodes = JSON.parse(rawEpisodes) as NguoncHtmlServer[];
+  const episodes = parsedEpisodes.map((server) => ({
+    server_name: server.server_name,
+    items: Array.isArray(server.list)
+      ? server.list
+      : Array.isArray(server.items)
+        ? server.items
+        : [],
+  }));
+
+  return {
+    status: "success",
+    movie: {
+      name: normalizedTitle,
+      slug,
+      thumb_url: thumbUrl,
+      poster_url: posterUrl ?? thumbUrl,
+      episodes,
+    },
+  };
 }
 
 function normalizeNumber(value: string): string {

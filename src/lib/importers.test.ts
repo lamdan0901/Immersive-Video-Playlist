@@ -1,6 +1,12 @@
 import ophim from "@/test/fixtures/sample-ophim.json";
 import nguonc from "@/test/fixtures/sample-nguonc.json";
-import { makeEpisodeKey, normalizeImportedMovie, resolveApiUrl } from "./importers";
+import {
+  extractNguoncPayloadFromHtml,
+  makeEpisodeKey,
+  normalizeImportedMovie,
+  resolveApiUrl,
+  resolveNguoncPageUrl,
+} from "./importers";
 
 describe("normalizeImportedMovie", () => {
   it("prefers OPhim seo schema image for playlist artwork", () => {
@@ -182,5 +188,59 @@ describe("resolveApiUrl", () => {
       .toBe("https://example.com/phim/test");
     expect(resolveApiUrl("invalid url"))
       .toBe("invalid url");
+  });
+});
+
+describe("resolveNguoncPageUrl", () => {
+  it("converts NguonC API URLs back to page URLs", () => {
+    expect(resolveNguoncPageUrl("https://phim.nguonc.com/api/film/vuong-mien-hoan-hao"))
+      .toBe("https://phim.nguonc.com/phim/vuong-mien-hoan-hao");
+  });
+
+  it("keeps NguonC page URLs unchanged", () => {
+    expect(resolveNguoncPageUrl("https://phim.nguonc.com/phim/vuong-mien-hoan-hao"))
+      .toBe("https://phim.nguonc.com/phim/vuong-mien-hoan-hao");
+  });
+});
+
+describe("extractNguoncPayloadFromHtml", () => {
+  it("reconstructs NguonC movie payloads from the public film page", () => {
+    const payload = extractNguoncPayloadFromHtml(
+      `
+        <html>
+          <head>
+            <link rel="canonical" href="https://phim.nguonc.com/phim/huyen-thoai-linh-bep">
+            <meta property="og:title" content="Huyền Thoại Lính Bếp - The Legend of Kitchen Soldier">
+            <meta property="og:image" content="{&quot;original&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep.jpg&quot;,&quot;poster&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep-1.jpg&quot;}">
+          </head>
+          <body>
+            <h1>Huyền Thoại Lính Bếp</h1>
+            <script>
+              var episodes = [{"server_name":"Vietsub #1","list":[{"name":"1","slug":"tap-1","embed":"https://embed.test/1","m3u8":"https://m3u8.test/1.m3u8"}]}];
+            </script>
+          </body>
+        </html>
+      `,
+      "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+    ) as {
+      movie: {
+        name: string;
+        slug: string;
+        thumb_url: string;
+        poster_url: string;
+        episodes: Array<{ server_name: string; items: Array<{ slug: string }> }>;
+      };
+    };
+
+    expect(payload.movie.name).toBe("Huyền Thoại Lính Bếp");
+    expect(payload.movie.slug).toBe("huyen-thoai-linh-bep");
+    expect(payload.movie.thumb_url).toBe(
+      "https://phim.nguonc.com/public/images/Post/2/huyen-thoai-linh-bep.jpg",
+    );
+    expect(payload.movie.poster_url).toBe(
+      "https://phim.nguonc.com/public/images/Post/2/huyen-thoai-linh-bep-1.jpg",
+    );
+    expect(payload.movie.episodes[0]?.server_name).toBe("Vietsub #1");
+    expect(payload.movie.episodes[0]?.items[0]?.slug).toBe("tap-1");
   });
 });

@@ -1,7 +1,7 @@
 import ophim from "@/test/fixtures/sample-ophim.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { episodes, playlists, sources, sourceSnapshots } from "@/db/schema";
-import { createSourceFromUrl } from "./import";
+import { createSourceFromUrl, fetchSourceJson } from "./import";
 
 const {
   logMutationMock,
@@ -143,5 +143,82 @@ describe("createSourceFromUrl", () => {
     expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
       "ophim1.com",
     ]);
+  });
+
+  it("falls back to the NguonC film page when the API returns 403", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 403 })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => `
+            <html>
+              <head>
+                <link rel="canonical" href="https://phim.nguonc.com/phim/huyen-thoai-linh-bep">
+                <meta property="og:title" content="Huyền Thoại Lính Bếp - The Legend of Kitchen Soldier">
+                <meta property="og:image" content="{&quot;original&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep.jpg&quot;,&quot;poster&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep-1.jpg&quot;}">
+              </head>
+              <body>
+                <h1>Huyền Thoại Lính Bếp</h1>
+                <script>
+                  var episodes = [{"server_name":"Vietsub #1","list":[{"name":"1","slug":"tap-1","embed":"https://embed.test/1","m3u8":"https://m3u8.test/1.m3u8"}]}];
+                </script>
+              </body>
+            </html>
+          `,
+        }),
+    );
+
+    const result = await createSourceFromUrl({
+      adminSecret: "secret",
+      playlistId: "playlist-1",
+      playlistVersion: 1,
+      sourceUrl: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(sourceInsertValues).not.toHaveLength(0);
+    expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
+      "phim.nguonc.com",
+    ]);
+  });
+});
+
+describe("fetchSourceJson", () => {
+  it("reconstructs a NguonC payload from HTML fallback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 403 })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => `
+            <html>
+              <head>
+                <link rel="canonical" href="https://phim.nguonc.com/phim/huyen-thoai-linh-bep">
+                <meta property="og:title" content="Huyền Thoại Lính Bếp - The Legend of Kitchen Soldier">
+                <meta property="og:image" content="{&quot;original&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep.jpg&quot;,&quot;poster&quot;:&quot;/public/images/Post/2/huyen-thoai-linh-bep-1.jpg&quot;}">
+              </head>
+              <body>
+                <h1>Huyền Thoại Lính Bếp</h1>
+                <script>
+                  var episodes = [{"server_name":"Vietsub #1","list":[{"name":"1","slug":"tap-1","embed":"https://embed.test/1"}]}];
+                </script>
+              </body>
+            </html>
+          `,
+        }),
+    );
+
+    const payload = await fetchSourceJson(
+      "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+    );
+
+    expect((payload as { movie: { name: string } }).movie.name).toBe(
+      "Huyền Thoại Lính Bếp",
+    );
   });
 });

@@ -11,7 +11,13 @@ import {
   thirtyDaysFromNow,
 } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
-import { normalizeImportedMovie, resolveApiUrl } from "@/lib/importers";
+import {
+  buildImportRequestHeaders,
+  extractNguoncPayloadFromHtml,
+  normalizeImportedMovie,
+  resolveApiUrl,
+  resolveNguoncPageUrl,
+} from "@/lib/importers";
 import { pickDerivedImage } from "@/lib/playlist-artwork";
 import {
   canonicalHash,
@@ -47,9 +53,43 @@ function sourceTitleFromUrl(sourceUrl: string) {
 }
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
-  const response = await fetch(url, { cache: "no-store", signal });
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: buildImportRequestHeaders(
+      url,
+      "application/json,text/plain,*/*",
+    ),
+    signal,
+  });
 
   if (!response.ok) {
+    const fallbackPageUrl = resolveNguoncPageUrl(url);
+    if (fallbackPageUrl && (response.status === 403 || response.status === 429)) {
+      try {
+        const pageResponse = await fetch(fallbackPageUrl, {
+          cache: "no-store",
+          headers: buildImportRequestHeaders(
+            fallbackPageUrl,
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          ),
+          signal,
+        });
+
+        if (pageResponse.ok) {
+          return extractNguoncPayloadFromHtml(
+            await pageResponse.text(),
+            fallbackPageUrl,
+          );
+        }
+      } catch (fallbackError) {
+        console.warn(
+          "[fetchSourceJson] NguonC HTML fallback failed:",
+          fallbackPageUrl,
+          fallbackError,
+        );
+      }
+    }
+
     throw new Error(`Import request failed with ${response.status}`);
   }
 

@@ -216,6 +216,11 @@ describe("isNguoncUrl", () => {
 });
 
 describe("fetchImportPayloadInBrowser", () => {
+  beforeEach(() => {
+    delete process.env.NGUONC_PROXY_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
+  });
+
   it("resolves page URLs to API URLs before fetching", async () => {
     vi.stubGlobal(
       "fetch",
@@ -258,6 +263,32 @@ describe("fetchImportPayloadInBrowser", () => {
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(900);
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect((result.importedJson as { status: string }).status).toBe("success");
+  });
+
+  it("tries the relay URL first when NGUONC_PROXY_API_BASE_URL is set", async () => {
+    process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => nguonc,
+      }),
+    );
+
+    const result = await fetchImportPayloadInBrowser(
+      "https://phim.nguonc.com/phim/vuong-mien-hoan-hao",
+    );
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://relay.example.com/api/film/vuong-mien-hoan-hao",
+    );
+    expect(result.sourceUrl).toBe(
+      "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
+    );
+    expect((result.importedJson as { status: string }).status).toBe("success");
+
+    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
   });
 });
 

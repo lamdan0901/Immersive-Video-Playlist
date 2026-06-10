@@ -1,4 +1,9 @@
-import type { ImportedEpisode, ImportedMovie, ImportedSource, LinkType } from "./types";
+import type {
+  ImportedEpisode,
+  ImportedMovie,
+  ImportedSource,
+  LinkType,
+} from "./types";
 
 const IMPORT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
@@ -58,6 +63,46 @@ export function isNguoncUrl(sourceUrl: string): boolean {
   }
 }
 
+export function extractNguoncSlug(sourceUrl: string): string | null {
+  try {
+    const url = new URL(sourceUrl);
+    if (!url.hostname.includes("nguonc")) {
+      return null;
+    }
+
+    if (url.pathname.startsWith("/api/film/")) {
+      return url.pathname.slice(10).replace(/^\/+|\/+$/g, "") || null;
+    }
+
+    if (url.pathname.startsWith("/phim/")) {
+      return url.pathname.slice(6).replace(/^\/+|\/+$/g, "") || null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function getNguoncRelayBaseUrl(): string | undefined {
+  return (
+    process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL?.trim() ||
+    process.env.NGUONC_PROXY_API_BASE_URL?.trim() ||
+    undefined
+  );
+}
+
+export function resolveNguoncBrowserFallbackUrl(rawUrl: string): string | null {
+  const relayBaseUrl = getNguoncRelayBaseUrl();
+  const slug = extractNguoncSlug(rawUrl);
+
+  if (!relayBaseUrl || !slug) {
+    return null;
+  }
+
+  return `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
+}
+
 export function buildImportRequestHeaders(
   sourceUrl: string,
   accept: string,
@@ -87,6 +132,40 @@ export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
   importedJson: unknown;
 }> {
   const sourceUrl = resolveApiUrl(rawUrl);
+
+  const relayUrl = resolveNguoncBrowserFallbackUrl(rawUrl);
+  if (relayUrl) {
+    console.log(`[fetchImportPayloadInBrowser] Trying relay: ${relayUrl}`);
+    try {
+      const response = await fetch(relayUrl);
+      if (response.ok) {
+        console.log("[fetchImportPayloadInBrowser] Relay succeeded");
+        return {
+          sourceUrl,
+          importedJson: await response.json(),
+        };
+      }
+
+      console.log(
+        `[fetchImportPayloadInBrowser] Relay failed with status: ${response.status}`,
+      );
+    } catch (error) {
+      console.log("[fetchImportPayloadInBrowser] Relay error:", error);
+    }
+  } else {
+    const relayBaseUrl = getNguoncRelayBaseUrl();
+    const slug = extractNguoncSlug(rawUrl);
+    console.log(
+      "[fetchImportPayloadInBrowser] Relay not available:",
+      JSON.stringify({
+        hasRelayBaseUrl: !!relayBaseUrl,
+        relayBaseUrl: relayBaseUrl ?? null,
+        hasSlug: !!slug,
+        isNguonc: isNguoncUrl(rawUrl),
+      }),
+    );
+  }
+
   let lastStatus = 0;
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -134,7 +213,9 @@ type RawServer = {
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function asString(value: unknown): string | null {
@@ -227,10 +308,7 @@ export function extractNguoncPayloadFromHtml(
 
   const normalizedTitle =
     (title ? stripTags(title) : null) ??
-    matchFirst(
-      html,
-      /<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i,
-    )
+    matchFirst(html, /<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i)
       ?.split(" - ")[0]
       ?.trim() ??
     slug ??
@@ -270,7 +348,12 @@ export function extractNguoncPayloadFromHtml(
 
 function normalizeNumber(value: string): string {
   const match = value.match(/\d+(?:\.\d+)?/);
-  return match ? match[0] : value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return match
+    ? match[0]
+    : value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
 }
 
 function absoluteImage(url: string | null, cdn: string | null): string | null {
@@ -280,14 +363,20 @@ function absoluteImage(url: string | null, cdn: string | null): string | null {
   return `${cdn.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
 }
 
-export function makeEpisodeKey(episode: { slug?: unknown; name?: unknown }, sourceKey: string): string {
+export function makeEpisodeKey(
+  episode: { slug?: unknown; name?: unknown },
+  sourceKey: string,
+): string {
   const slug = asString(episode.slug);
   if (slug) return slug;
   const name = asString(episode.name) ?? "episode";
   return `${sourceKey}:${normalizeNumber(name)}`;
 }
 
-function normalizeEpisodes(rows: RawEpisode[], sourceKey: string): ImportedEpisode[] {
+function normalizeEpisodes(
+  rows: RawEpisode[],
+  sourceKey: string,
+): ImportedEpisode[] {
   return rows
     .map((episode, index) => {
       const title = asString(episode.name) ?? `${index + 1}`;
@@ -297,17 +386,28 @@ function normalizeEpisodes(rows: RawEpisode[], sourceKey: string): ImportedEpiso
         slug: asString(episode.slug),
         filename: asString(episode.filename),
         embedUrl: asString(episode.link_embed) ?? asString(episode.embed),
-        m3u8Url: asString(episode.link_m3u8) ?? asString(episode.m3u8)
+        m3u8Url: asString(episode.link_m3u8) ?? asString(episode.m3u8),
       };
     })
     .filter((episode) => episode.embedUrl != null || episode.m3u8Url != null);
 }
 
-function normalizeServers(servers: RawServer[], sourceUrl: string): ImportedSource[] {
+function normalizeServers(
+  servers: RawServer[],
+  sourceUrl: string,
+): ImportedSource[] {
   return servers.map((server, index) => {
     const sourceTitle = asString(server.server_name) ?? `Source ${index + 1}`;
-    const sourceKey = sourceTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `source-${index + 1}`;
-    const rows = Array.isArray(server.server_data) ? server.server_data : Array.isArray(server.items) ? server.items : [];
+    const sourceKey =
+      sourceTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || `source-${index + 1}`;
+    const rows = Array.isArray(server.server_data)
+      ? server.server_data
+      : Array.isArray(server.items)
+        ? server.items
+        : [];
     const preferredLinkType: LinkType = "embed";
 
     return {
@@ -315,31 +415,47 @@ function normalizeServers(servers: RawServer[], sourceUrl: string): ImportedSour
       sourceTitle,
       sourceUrl,
       preferredLinkType,
-      episodes: normalizeEpisodes(rows, sourceKey)
+      episodes: normalizeEpisodes(rows, sourceKey),
     };
   });
 }
 
-export function normalizeImportedMovie(data: unknown, sourceUrl: string): ImportedMovie {
+export function normalizeImportedMovie(
+  data: unknown,
+  sourceUrl: string,
+): ImportedMovie {
   const record = data as Record<string, unknown>;
   const isNguonC = sourceUrl.includes("phim.nguonc.com");
   const isOPhim = sourceUrl.includes("ophim1.com");
-  const item = (isNguonC ? record.movie : isOPhim ? (record.data as Record<string, unknown> | undefined)?.item : null) as Record<string, unknown> | null;
+  const item = (
+    isNguonC
+      ? record.movie
+      : isOPhim
+        ? (record.data as Record<string, unknown> | undefined)?.item
+        : null
+  ) as Record<string, unknown> | null;
 
   if (!item) {
     throw new Error("Unsupported import response");
   }
 
-  const allServers = Array.isArray(item.episodes) ? (item.episodes as RawServer[]) : [];
+  const allServers = Array.isArray(item.episodes)
+    ? (item.episodes as RawServer[])
+    : [];
   const vietsubServers = allServers.filter((server) => {
     const name = asString(server.server_name);
     return name != null && name.toLowerCase().startsWith("vietsub");
   });
   const rawServers = vietsubServers.length > 0 ? vietsubServers : allServers;
   const responseData = record.data as Record<string, unknown> | undefined;
-  const seoSchema = asRecord(asRecord(asRecord(responseData?.seoOnPage)?.seoSchema));
-  const cdn = asString(responseData?.APP_DOMAIN_CDN_IMAGE) ?? asString(record.APP_DOMAIN_CDN_IMAGE);
-  const imageUrl = asString(seoSchema?.image) ?? absoluteImage(asString(item.thumb_url), cdn);
+  const seoSchema = asRecord(
+    asRecord(asRecord(responseData?.seoOnPage)?.seoSchema),
+  );
+  const cdn =
+    asString(responseData?.APP_DOMAIN_CDN_IMAGE) ??
+    asString(record.APP_DOMAIN_CDN_IMAGE);
+  const imageUrl =
+    asString(seoSchema?.image) ?? absoluteImage(asString(item.thumb_url), cdn);
   const posterUrl = absoluteImage(asString(item.poster_url), cdn);
 
   return {
@@ -348,6 +464,6 @@ export function normalizeImportedMovie(data: unknown, sourceUrl: string): Import
     imageUrl,
     posterUrl,
     metadata: item,
-    sources: normalizeServers(rawServers, sourceUrl)
+    sources: normalizeServers(rawServers, sourceUrl),
   };
 }

@@ -14,6 +14,8 @@ import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import {
   buildImportRequestHeaders,
   extractNguoncPayloadFromHtml,
+  extractNguoncSlug,
+  getNguoncRelayBaseUrl,
   isNguoncUrl,
   normalizeImportedMovie,
   resolveApiUrl,
@@ -57,36 +59,21 @@ function shouldDisableAutoRefresh(sourceUrl: string) {
   return isNguoncUrl(sourceUrl);
 }
 
-function extractNguoncSlug(sourceUrl: string): string | null {
-  try {
-    const url = new URL(sourceUrl);
-    if (!url.hostname.includes("nguonc")) {
-      return null;
-    }
-
-    if (url.pathname.startsWith("/api/film/")) {
-      return url.pathname.slice(10).replace(/^\/+|\/+$/g, "") || null;
-    }
-
-    if (url.pathname.startsWith("/phim/")) {
-      return url.pathname.slice(6).replace(/^\/+|\/+$/g, "") || null;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function resolveNguoncRelayFetchUrl(sourceUrl: string): string {
-  const relayBaseUrl = process.env.NGUONC_PROXY_API_BASE_URL?.trim();
+  const relayBaseUrl = getNguoncRelayBaseUrl();
   const slug = extractNguoncSlug(sourceUrl);
 
   if (!relayBaseUrl || !slug || !isNguoncUrl(sourceUrl)) {
+    console.log(
+      "[resolveNguoncRelayFetchUrl] Relay not configured:",
+      JSON.stringify({ relayBaseUrl: !!relayBaseUrl, slug: !!slug, isNguonc: isNguoncUrl(sourceUrl) }),
+    );
     return sourceUrl;
   }
 
-  return `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
+  const relayUrl = `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
+  console.log("[resolveNguoncRelayFetchUrl] Using relay:", relayUrl);
+  return relayUrl;
 }
 
 async function createPlaylistFromImportedJsonInternal(
@@ -184,6 +171,11 @@ async function createPlaylistFromImportedJsonInternal(
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
   const fetchUrl = resolveNguoncRelayFetchUrl(url);
+  if (fetchUrl !== url) {
+    console.log("[fetchSourceJson] Fetching via relay:", fetchUrl);
+  } else {
+    console.log("[fetchSourceJson] Fetching directly (no relay):", url);
+  }
   const response = await fetch(fetchUrl, {
     cache: "no-store",
     headers:

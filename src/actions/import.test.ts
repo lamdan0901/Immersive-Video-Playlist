@@ -132,6 +132,7 @@ describe("createSourceFromUrl", () => {
   beforeEach(() => {
     process.env.ADMIN_SECRET = "secret";
     delete process.env.NGUONC_PROXY_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
     playlistInsertValues.length = 0;
     sourceInsertValues.length = 0;
     transactionMock.mockClear();
@@ -219,6 +220,11 @@ describe("createSourceFromUrl", () => {
 });
 
 describe("fetchSourceJson", () => {
+  beforeEach(() => {
+    delete process.env.NGUONC_PROXY_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
+  });
+
   it("reconstructs a NguonC payload from HTML fallback", async () => {
     vi.stubGlobal(
       "fetch",

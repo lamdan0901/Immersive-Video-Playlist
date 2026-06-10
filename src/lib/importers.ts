@@ -93,6 +93,10 @@ export function getNguoncRelayBaseUrl(): string | undefined {
 }
 
 export function resolveNguoncBrowserFallbackUrl(rawUrl: string): string | null {
+  if (!isNguoncUrl(rawUrl)) {
+    return null;
+  }
+
   const relayBaseUrl = getNguoncRelayBaseUrl();
   const slug = extractNguoncSlug(rawUrl);
 
@@ -152,7 +156,7 @@ export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
     } catch (error) {
       console.log("[fetchImportPayloadInBrowser] Relay error:", error);
     }
-  } else {
+  } else if (isNguoncUrl(rawUrl)) {
     const relayBaseUrl = getNguoncRelayBaseUrl();
     const slug = extractNguoncSlug(rawUrl);
     console.log(
@@ -161,7 +165,6 @@ export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
         hasRelayBaseUrl: !!relayBaseUrl,
         relayBaseUrl: relayBaseUrl ?? null,
         hasSlug: !!slug,
-        isNguonc: isNguoncUrl(rawUrl),
       }),
     );
   }

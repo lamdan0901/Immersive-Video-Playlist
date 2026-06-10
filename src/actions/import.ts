@@ -60,13 +60,17 @@ function shouldDisableAutoRefresh(sourceUrl: string) {
 }
 
 function resolveNguoncRelayFetchUrl(sourceUrl: string): string {
+  if (!isNguoncUrl(sourceUrl)) {
+    return sourceUrl;
+  }
+
   const relayBaseUrl = getNguoncRelayBaseUrl();
   const slug = extractNguoncSlug(sourceUrl);
 
-  if (!relayBaseUrl || !slug || !isNguoncUrl(sourceUrl)) {
+  if (!relayBaseUrl || !slug) {
     console.log(
       "[resolveNguoncRelayFetchUrl] Relay not configured:",
-      JSON.stringify({ relayBaseUrl: !!relayBaseUrl, slug: !!slug, isNguonc: isNguoncUrl(sourceUrl) }),
+      JSON.stringify({ relayBaseUrl: !!relayBaseUrl, slug: !!slug }),
     );
     return sourceUrl;
   }

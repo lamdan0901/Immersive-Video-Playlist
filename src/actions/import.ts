@@ -651,6 +651,7 @@ async function performSourceRefresh(
 async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   const conditions = [
     isNull(sources.deletedAt),
+    isNull(playlists.deletedAt),
     eq(playlists.autoRefreshDisabled, false),
   ];
 

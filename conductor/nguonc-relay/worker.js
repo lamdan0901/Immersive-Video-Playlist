@@ -46,10 +46,17 @@ const worker = {
         },
         headers: {
           accept: "application/json,text/plain,*/*",
+          "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+          referer: `https://phim.nguonc.com/phim/${encodeURIComponent(slug)}`,
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
         },
       });
 
       const body = await upstream.text();
+      console.log(
+        `[relay-worker] upstream ${slug}: ${upstream.status} (${body.length} bytes)`,
+      );
       return new Response(body, {
         status: upstream.status,
         headers: {

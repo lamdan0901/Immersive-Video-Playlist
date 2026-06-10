@@ -188,6 +188,10 @@ async function fetchSourceJson(url: string, signal?: AbortSignal) {
   if (!response.ok) {
     const fallbackPageUrl = resolveNguoncPageUrl(url);
     if (fallbackPageUrl && (response.status === 403 || response.status === 429)) {
+      console.log(
+        "[fetchSourceJson] Trying NguonC HTML fallback:",
+        fallbackPageUrl,
+      );
       try {
         const pageResponse = await fetch(fallbackPageUrl, {
           cache: "no-store",
@@ -199,14 +203,25 @@ async function fetchSourceJson(url: string, signal?: AbortSignal) {
         });
 
         if (pageResponse.ok) {
+          console.log(
+            "[fetchSourceJson] NguonC HTML fallback succeeded: " +
+              fallbackPageUrl,
+          );
           return extractNguoncPayloadFromHtml(
             await pageResponse.text(),
             fallbackPageUrl,
           );
         }
+
+        console.warn(
+          "[fetchSourceJson] NguonC HTML fallback page returned " +
+            pageResponse.status +
+            " for " +
+            fallbackPageUrl,
+        );
       } catch (fallbackError) {
         console.warn(
-          "[fetchSourceJson] NguonC HTML fallback failed:",
+          "[fetchSourceJson] NguonC HTML fallback fetch error:",
           fallbackPageUrl,
           fallbackError,
         );

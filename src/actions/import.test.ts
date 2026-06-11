@@ -279,4 +279,30 @@ describe("fetchSourceJson", () => {
       }),
     );
   });
+
+  it("logs the primary relay failure status before trying the HTML fallback", async () => {
+    process.env.NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 403 })
+        .mockResolvedValueOnce({ ok: false, status: 403, text: async () => "" }),
+    );
+
+    await expect(
+      fetchSourceJson("https://phim.nguonc.com/api/film/huyen-thoai-linh-bep"),
+    ).rejects.toThrow("Import request failed with 403");
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[fetchSourceJson] Primary fetch failed",
+      expect.objectContaining({
+        requestedUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+        fetchUrl: "https://relay.example.com/api/film/huyen-thoai-linh-bep",
+        status: 403,
+      }),
+    );
+  });
 });

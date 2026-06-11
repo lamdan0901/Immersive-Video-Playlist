@@ -34,6 +34,7 @@ import { logMutation } from "./playlists";
 type RefreshSuccess = { message: string };
 type CreatePlaylistSuccess = { message: string; playlistId: string };
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const AUTO_REFRESH_DELAY_MS = 3000;
 
 function asErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -45,6 +46,37 @@ function asErrorMessage(error: unknown): string {
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function createAbortError() {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+async function sleep(ms: number, signal?: AbortSignal) {
+  if (ms <= 0) {
+    return;
+  }
+
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, ms);
+
+    function handleAbort() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", handleAbort);
+      reject(createAbortError());
+    }
+
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
 }
 
 function sourceTitleFromUrl(sourceUrl: string) {
@@ -190,6 +222,12 @@ async function fetchSourceJson(url: string, signal?: AbortSignal) {
   });
 
   if (!response.ok) {
+    console.warn("[fetchSourceJson] Primary fetch failed", {
+      requestedUrl: url,
+      fetchUrl,
+      status: response.status,
+    });
+
     const fallbackPageUrl = resolveNguoncPageUrl(url);
     if (fallbackPageUrl && (response.status === 403 || response.status === 429)) {
       console.log(
@@ -687,32 +725,29 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
   const staleSources = await query;
 
   let touchedCount = 0;
-  const concurrency = 4;
-  let nextIndex = 0;
 
-  async function runNext(): Promise<void> {
-    while (nextIndex < staleSources.length && !signal?.aborted) {
-      const sourceRow = staleSources[nextIndex++];
-      try {
-        await performSourceRefresh(sourceRow, undefined, signal);
-        touchedCount++;
-      } catch (error) {
-        if (signal?.aborted || isAbortError(error)) {
-          return;
-        }
-        console.error("[performAutoRefresh] failed:", sourceRow.sourceUrl, error);
-        const message = asErrorMessage(error);
-        await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
-        touchedCount++;
+  for (const [index, sourceRow] of staleSources.entries()) {
+    if (signal?.aborted) {
+      break;
+    }
+
+    try {
+      await performSourceRefresh(sourceRow, undefined, signal);
+      touchedCount++;
+    } catch (error) {
+      if (signal?.aborted || isAbortError(error)) {
+        break;
       }
+      console.error("[performAutoRefresh] failed:", sourceRow.sourceUrl, error);
+      const message = asErrorMessage(error);
+      await updateFailedImport(sourceRow.id, sourceRow.sourceUrl, message);
+      touchedCount++;
+    }
+
+    if (index < staleSources.length - 1) {
+      await sleep(AUTO_REFRESH_DELAY_MS, signal);
     }
   }
-
-  const workers = Array.from(
-    { length: Math.min(concurrency, staleSources.length) },
-    () => runNext(),
-  );
-  await Promise.all(workers);
 
   if (touchedCount > 0) {
     revalidatePath("/");

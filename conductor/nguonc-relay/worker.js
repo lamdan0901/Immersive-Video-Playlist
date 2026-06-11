@@ -1,5 +1,6 @@
 const API_PREFIX = "/api/film/";
 const CACHE_TTL_SECONDS = 300;
+const FAILURE_SNIPPET_LENGTH = 200;
 
 function json(data, init = {}) {
   return new Response(JSON.stringify(data), {
@@ -20,6 +21,10 @@ function getSlug(pathname) {
 
   const slug = pathname.slice(API_PREFIX.length).replace(/^\/+|\/+$/g, "");
   return slug || null;
+}
+
+function summarizeFailureBody(body) {
+  return body.replace(/\s+/g, " ").trim().slice(0, FAILURE_SNIPPET_LENGTH);
 }
 
 const worker = {
@@ -57,6 +62,14 @@ const worker = {
       console.log(
         `[relay-worker] upstream ${slug}: ${upstream.status} (${body.length} bytes)`,
       );
+      if (!upstream.ok) {
+        console.warn("[relay-worker] upstream failure", {
+          slug,
+          status: upstream.status,
+          contentType: upstream.headers.get("content-type"),
+          snippet: summarizeFailureBody(body),
+        });
+      }
       return new Response(body, {
         status: upstream.status,
         headers: {

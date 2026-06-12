@@ -2,9 +2,14 @@ import { vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PlaylistCard } from "./playlist-card";
 
+vi.mock("@/actions/import", () => ({
+  refreshPlaylistSources: vi.fn(),
+}));
+
 vi.mock("@/actions/playlists", () => ({
   softDeletePlaylist: vi.fn(),
   togglePinPlaylist: vi.fn(),
+  toggleAutoRefreshPlaylist: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +29,7 @@ it("renders the active episode progress", () => {
         pinned: false,
         pinnedOrder: 0,
         version: 1,
+        autoRefreshDisabled: false,
         lastPlayedAt: "2026-05-01T23:30:00.000-05:00",
         updatedAt: "2026-05-09T08:15:00.000Z",
         activeSourceTitle: "Vietsub",

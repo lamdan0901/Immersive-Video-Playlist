@@ -6,9 +6,12 @@ import {
   createPlaylistFromImportedJson,
   createSourceFromUrl,
   fetchSourceJson,
+  performAutoRefresh,
+  refreshPlaylistSources,
 } from "./import";
 
 const {
+  dbSelectRows,
   logMutationMock,
   playlistInsertValues,
   revalidatePathMock,
@@ -18,6 +21,7 @@ const {
 } = vi.hoisted(() => {
   const playlistValues: Record<string, unknown>[] = [];
   const sourceValues: Record<string, unknown>[] = [];
+  const selectRows: Record<string, unknown>[] = [];
 
   const transaction = vi.fn(async (callback: (tx: {
     delete: (table: unknown) => {
@@ -68,7 +72,9 @@ const {
           }
 
           if (table === episodes) {
-            return Promise.resolve();
+            return {
+              onConflictDoUpdate: async () => {},
+            };
           }
 
           throw new Error("Unexpected insert table");
@@ -85,6 +91,10 @@ const {
 
             if (table === sources) {
               return Promise.resolve([{ maxOrder: -1 }]);
+            }
+
+            if (table === episodes) {
+              return Promise.resolve([]);
             }
 
             throw new Error("Unexpected select table");
@@ -106,6 +116,7 @@ const {
     playlistInsertValues: playlistValues,
     revalidatePathMock: vi.fn(),
     revalidateTagMock: vi.fn(),
+    dbSelectRows: selectRows,
     sourceInsertValues: sourceValues,
     transactionMock: transaction,
   };
@@ -120,6 +131,23 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/db/client", () => ({
   db: {
+    select: vi.fn(() => ({
+      from: () => ({
+        where: () => ({
+          orderBy: async () => dbSelectRows,
+        }),
+        innerJoin: () => ({
+          where: () => ({
+            orderBy: async () => dbSelectRows,
+          }),
+        }),
+      }),
+    })),
+    update: vi.fn(() => ({
+      set: () => ({
+        where: async () => {},
+      }),
+    })),
     transaction: transactionMock,
   },
 }));
@@ -133,6 +161,7 @@ describe("createSourceFromUrl", () => {
     process.env.ADMIN_SECRET = "secret";
     delete process.env.NGUONC_PROXY_API_BASE_URL;
     delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
+    dbSelectRows.length = 0;
     playlistInsertValues.length = 0;
     sourceInsertValues.length = 0;
     transactionMock.mockClear();
@@ -223,6 +252,7 @@ describe("fetchSourceJson", () => {
   beforeEach(() => {
     delete process.env.NGUONC_PROXY_API_BASE_URL;
     delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
+    dbSelectRows.length = 0;
   });
 
   it("reconstructs a NguonC payload from HTML fallback", async () => {
@@ -304,5 +334,73 @@ describe("fetchSourceJson", () => {
         status: 403,
       }),
     );
+  });
+
+  it("skips NguonC sources during auto-refresh while still refreshing OPhim sources", async () => {
+    dbSelectRows.push(
+      {
+        id: "nguonc-source",
+        playlistId: "playlist-1",
+        sourceKey: "vietsub-1",
+        sourceTitle: "phim.nguonc.com",
+        sortOrder: 0,
+        sourceUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
+      },
+      {
+        id: "ophim-source",
+        playlistId: "playlist-1",
+        sourceKey: "vietsub-1",
+        sourceTitle: "ophim1.com",
+        sortOrder: 1,
+        sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+      },
+    );
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ophim,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const touchedCount = await performAutoRefresh();
+
+    expect(touchedCount).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+      expect.objectContaining({
+        cache: "no-store",
+      }),
+    );
+  });
+
+  it("refreshes all sources for a playlist and returns a UI message", async () => {
+    process.env.ADMIN_SECRET = "secret";
+    dbSelectRows.push({
+      id: "ophim-source",
+      playlistId: "playlist-1",
+      sourceKey: "vietsub-1",
+      sourceTitle: "ophim1.com",
+      sortOrder: 0,
+      sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+    });
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ophim,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await refreshPlaylistSources({
+      adminSecret: "secret",
+      playlistId: "playlist-1",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    expect(result.data.message).toBe("Refreshed 1 source.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

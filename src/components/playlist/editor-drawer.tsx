@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { createSourceFromUrl, refreshSource } from "@/actions/import";
+import { createSourceFromUrl } from "@/actions/import";
 import {
   softDeleteSource,
   updatePlaylistTitle,
@@ -24,9 +24,10 @@ type EditorDrawerProps = {
     preferredLinkType: LinkType;
     version: number;
   } | null;
+  onRefresh?: (sourceId: string, sourceUrl: string) => Promise<string>;
 };
 
-export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
+export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps) {
   const router = useRouter();
   const initialAdvancedJson = JSON.stringify({ playlist, source }, null, 2);
   const [isPending, startTransition] = useTransition();
@@ -167,23 +168,19 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
     }
   }
 
-  async function handleRefresh(adminSecret: string) {
+  async function handleRefresh() {
     if (!source) {
       setStatus("No source selected.");
       return;
     }
 
-    const result = await refreshSource({
-      adminSecret,
-      playlistId: playlist.id,
-      sourceId: source.id,
-      sourceUrl,
-    });
+    if (!onRefresh) return;
 
-    setStatus(result.ok ? result.data.message : result.error);
-    if (result.ok) {
-      router.refresh();
-    }
+    startTransition(async () => {
+      setStatus("Refreshing...");
+      const message = await onRefresh(source.id, sourceUrl);
+      setStatus(message);
+    });
   }
 
   async function handleDelete(adminSecret: string) {
@@ -376,8 +373,8 @@ export function EditorDrawer({ playlist, source }: EditorDrawerProps) {
             <button
               type="button"
               className="ghost-button"
-              disabled={isPending}
-              onClick={() => runWithAdminSecret(handleRefresh)}
+              disabled={isPending || !onRefresh}
+              onClick={handleRefresh}
             >
               Refresh Source
             </button>

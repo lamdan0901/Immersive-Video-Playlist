@@ -16,7 +16,11 @@ vi.mock("@/actions/playlists", () => ({
 }));
 
 vi.mock("@/actions/import", () => ({
-  refreshSource: vi.fn(),
+  createSourceFromUrl: vi.fn(),
+}));
+
+vi.mock("@/lib/client-refresh", () => ({
+  performClientRefresh: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -52,9 +56,11 @@ const playlist = {
   sources: [
     {
       id: "source-a",
+      sourceKey: "vietsub",
       sourceTitle: "Vietsub",
       sourceUrl: "https://video.test/source-a.json",
       preferredLinkType: "embed" as const,
+      sortOrder: 0,
       version: 1,
       episodes: [
         {
@@ -64,6 +70,7 @@ const playlist = {
           embedUrl: "https://video.test/embed/1",
           m3u8Url: "https://video.test/1.m3u8",
           lastPlayedSeconds: 0,
+          sortOrder: 0,
         },
         {
           id: "episode-a2",
@@ -72,14 +79,17 @@ const playlist = {
           embedUrl: "https://video.test/embed/2",
           m3u8Url: "https://video.test/2.m3u8",
           lastPlayedSeconds: 12,
+          sortOrder: 1,
         },
       ],
     },
     {
       id: "source-b",
+      sourceKey: "dubbed",
       sourceTitle: "Dubbed",
       sourceUrl: "https://video.test/source-b.json",
       preferredLinkType: "embed" as const,
+      sortOrder: 1,
       version: 1,
       episodes: [
         {
@@ -89,6 +99,7 @@ const playlist = {
           embedUrl: "https://video.test/embed/b1",
           m3u8Url: "https://video.test/b1.m3u8",
           lastPlayedSeconds: 3,
+          sortOrder: 0,
         },
       ],
     },

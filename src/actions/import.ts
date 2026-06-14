@@ -32,6 +32,11 @@ import type { ImportedSource } from "@/lib/types";
 import { logMutation } from "./playlists";
 
 type RefreshSuccess = { message: string };
+type RefreshPlaylistSourcesSuccess = {
+  message: string;
+  refreshedCount: number;
+  failedCount: number;
+};
 type CreatePlaylistSuccess = { message: string; playlistId: string };
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const AUTO_REFRESH_DELAY_MS = 3000;
@@ -89,6 +94,25 @@ function sourceTitleFromUrl(sourceUrl: string) {
 
 function shouldDisableAutoRefresh(sourceUrl: string) {
   return isNguoncUrl(sourceUrl);
+}
+
+function sourceCountLabel(count: number) {
+  return `${count} source${count === 1 ? "" : "s"}`;
+}
+
+function refreshPlaylistSourcesMessage(
+  refreshedCount: number,
+  failedCount: number,
+) {
+  if (failedCount === 0) {
+    return `Refreshed ${sourceCountLabel(refreshedCount)}.`;
+  }
+
+  if (refreshedCount === 0) {
+    return `Failed to refresh ${sourceCountLabel(failedCount)}.`;
+  }
+
+  return `Refreshed ${sourceCountLabel(refreshedCount)}; ${failedCount} failed.`;
 }
 
 function resolveNguoncRelayFetchUrl(sourceUrl: string): string {
@@ -580,6 +604,76 @@ export async function refreshSource(input: {
   };
 }
 
+export async function refreshPlaylistSources(input: {
+  adminSecret: string;
+  playlistId: string;
+}): Promise<ActionResult<RefreshPlaylistSourcesSuccess>> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const sourceRows = await db
+    .select({
+      id: sources.id,
+      playlistId: sources.playlistId,
+      sourceKey: sources.sourceKey,
+      sourceTitle: sources.sourceTitle,
+      sortOrder: sources.sortOrder,
+      sourceUrl: sources.sourceUrl,
+    })
+    .from(sources)
+    .where(
+      and(eq(sources.playlistId, input.playlistId), isNull(sources.deletedAt)),
+    )
+    .orderBy(asc(sources.sortOrder));
+
+  if (sourceRows.length === 0) {
+    return { ok: false, error: "No sources to refresh." };
+  }
+
+  let refreshedCount = 0;
+  let failedCount = 0;
+
+  for (const sourceRow of sourceRows) {
+    try {
+      await performSourceRefresh(sourceRow);
+      refreshedCount++;
+    } catch (error) {
+      console.error(
+        "[refreshPlaylistSources] failed:",
+        sourceRow.sourceUrl,
+        error,
+      );
+      failedCount++;
+      await updateFailedImport(
+        sourceRow.id,
+        sourceRow.sourceUrl,
+        asErrorMessage(error),
+      );
+    }
+  }
+
+  const message = refreshPlaylistSourcesMessage(refreshedCount, failedCount);
+
+  await logMutation("source.refresh", message, input.playlistId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidatePath("/trash");
+  revalidateTag("playlists");
+
+  if (failedCount > 0) {
+    return { ok: false, error: message };
+  }
+
+  return {
+    ok: true,
+    data: {
+      message,
+      refreshedCount,
+      failedCount,
+    },
+  };
+}
+
 async function performSourceRefresh(
   sourceRow: {
     id: string;
@@ -722,7 +816,9 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
     .where(and(...conditions))
     .orderBy(asc(sources.lastRefreshedAt));
 
-  const staleSources = await query;
+  const staleSources = (await query).filter(
+    (sourceRow) => !isNguoncUrl(sourceRow.sourceUrl),
+  );
 
   let touchedCount = 0;
 

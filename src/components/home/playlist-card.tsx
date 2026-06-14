@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { softDeletePlaylist, toggleAutoRefreshPlaylist, togglePinPlaylist } from "@/actions/playlists";
+import { refreshPlaylistSources } from "@/actions/import";
+import {
+  softDeletePlaylist,
+  toggleAutoRefreshPlaylist,
+  togglePinPlaylist,
+} from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
 
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
@@ -12,7 +17,9 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
+  const [isRefreshingSources, setIsRefreshingSources] = useState(false);
   const [isTogglingRefresh, setIsTogglingRefresh] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -39,6 +46,18 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!toast) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
+
   async function handleDeleteClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
@@ -64,7 +83,45 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     router.refresh();
   }
 
-  async function handleAutoRefreshClick(event: React.MouseEvent<HTMLButtonElement>) {
+  async function handleRefreshSourcesClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const adminSecret = localStorage.getItem("adminSecret");
+    if (!adminSecret) {
+      setToast("Admin unlock required");
+      setMenuOpen(false);
+      return;
+    }
+
+    setIsRefreshingSources(true);
+    setToast(null);
+
+    try {
+      const result = await refreshPlaylistSources({
+        adminSecret,
+        playlistId: playlist.id,
+      });
+
+      setToast(result.ok ? result.data.message : result.error);
+      router.refresh();
+    } catch (error) {
+      setToast(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "Refresh failed",
+      );
+    } finally {
+      setIsRefreshingSources(false);
+      setMenuOpen(false);
+    }
+  }
+
+  async function handleAutoRefreshClick(
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -225,6 +282,14 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
         >
           <button
             type="button"
+            className="playlist-card-menu-refresh"
+            onClick={handleRefreshSourcesClick}
+            disabled={isRefreshingSources}
+          >
+            {isRefreshingSources ? "Refreshing..." : "Refresh Sources"}
+          </button>
+          <button
+            type="button"
             className="playlist-card-menu-autorefresh"
             onClick={handleAutoRefreshClick}
             disabled={isTogglingRefresh}
@@ -259,6 +324,11 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
+        </div>
+      ) : null}
+      {toast ? (
+        <div className="playlist-card-toast" role="status">
+          {toast}
         </div>
       ) : null}
     </div>

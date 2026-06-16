@@ -4,7 +4,13 @@ import { PlaylistDetailClient } from "./playlist-detail-client";
 
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
-const { savePlaybackProgressMock } = vi.hoisted(() => ({
+const {
+  performClientRefreshMock,
+  refreshSourceFromImportedJsonMock,
+  savePlaybackProgressMock,
+} = vi.hoisted(() => ({
+  performClientRefreshMock: vi.fn(),
+  refreshSourceFromImportedJsonMock: vi.fn(),
   savePlaybackProgressMock: vi.fn(),
 }));
 
@@ -17,10 +23,11 @@ vi.mock("@/actions/playlists", () => ({
 
 vi.mock("@/actions/import", () => ({
   createSourceFromUrl: vi.fn(),
+  refreshSourceFromImportedJson: refreshSourceFromImportedJsonMock,
 }));
 
 vi.mock("@/lib/client-refresh", () => ({
-  performClientRefresh: vi.fn(),
+  performClientRefresh: performClientRefreshMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -108,10 +115,25 @@ const playlist = {
 
 describe("PlaylistDetailClient", () => {
   beforeEach(() => {
+    localStorage.clear();
+    performClientRefreshMock.mockReset();
     pushMock.mockReset();
     refreshMock.mockReset();
+    refreshSourceFromImportedJsonMock.mockReset();
     savePlaybackProgressMock.mockReset();
     savePlaybackProgressMock.mockResolvedValue(undefined);
+    performClientRefreshMock.mockResolvedValue({
+      sourceUrl: "https://video.test/source-a.json",
+      importedJson: {
+        status: "success",
+      },
+    });
+    refreshSourceFromImportedJsonMock.mockResolvedValue({
+      ok: true,
+      data: {
+        message: "Refreshed source Vietsub.",
+      },
+    });
     vi.useFakeTimers();
   });
 
@@ -192,6 +214,83 @@ describe("PlaylistDetailClient", () => {
 
     expect(minutesInput).toHaveValue("2");
     expect(document.activeElement).toBe(secondsInput);
+  });
+
+  it("fetches refresh payloads in the browser and persists them to the server", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Source" }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(performClientRefreshMock).toHaveBeenCalledWith(
+      {
+        sourceKey: "vietsub",
+        sourceTitle: "Vietsub",
+        sortOrder: 0,
+        sourceUrl: "https://video.test/source-a.json",
+      },
+      playlist.sources[0].episodes,
+    );
+    expect(refreshSourceFromImportedJsonMock).toHaveBeenCalledWith({
+      adminSecret: "top-secret",
+      playlistId: "playlist-1",
+      sourceId: "source-a",
+      sourceUrl: "https://video.test/source-a.json",
+      importedJson: {
+        status: "success",
+      },
+    });
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Refreshed source Vietsub.",
+    );
+  });
+
+  it("logs refresh errors to the console when persistence fails", async () => {
+    localStorage.setItem("adminSecret", "top-secret");
+    refreshSourceFromImportedJsonMock.mockResolvedValueOnce({
+      ok: false,
+      error: "Refresh failed upstream",
+    });
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    render(
+      <PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Source" }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[PlaylistDetailClient] refresh failed:",
+      "Refresh failed upstream",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Refresh failed upstream",
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it("selects the full skip-start field value on focus", () => {

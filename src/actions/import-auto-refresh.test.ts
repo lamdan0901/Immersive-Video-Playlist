@@ -57,8 +57,6 @@ describe("performAutoRefresh", () => {
     updateWhereMock.mockClear();
     revalidatePathMock.mockReset();
     revalidateTagMock.mockReset();
-    delete process.env.NGUONC_PROXY_API_BASE_URL;
-    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
   });
 
   it("refreshes sources one by one and waits before starting the next source", async () => {

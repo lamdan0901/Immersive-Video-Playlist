@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { refreshPlaylistSources } from "@/actions/import";
+import { refreshPlaylistSourcesFromImportedJson } from "@/actions/import";
 import {
   softDeletePlaylist,
   toggleAutoRefreshPlaylist,
   togglePinPlaylist,
 } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
+import { fetchImportPayloadInBrowser } from "@/lib/importers";
 
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const router = useRouter();
@@ -100,14 +101,29 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
     setToast(null);
 
     try {
-      const result = await refreshPlaylistSources({
+      const refreshes = [];
+      for (const source of playlist.refreshSources) {
+        const payload = await fetchImportPayloadInBrowser(source.sourceUrl);
+        refreshes.push({
+          sourceId: source.id,
+          sourceUrl: payload.sourceUrl,
+          importedJson: payload.importedJson,
+        });
+      }
+
+      const result = await refreshPlaylistSourcesFromImportedJson({
         adminSecret,
         playlistId: playlist.id,
+        refreshes,
       });
 
+      if (!result.ok) {
+        console.error("[PlaylistCard] refresh failed:", result.error);
+      }
       setToast(result.ok ? result.data.message : result.error);
       router.refresh();
     } catch (error) {
+      console.error("[PlaylistCard] refresh failed:", error);
       setToast(
         error instanceof Error && error.message.trim()
           ? error.message

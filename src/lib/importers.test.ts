@@ -41,7 +41,7 @@ describe("normalizeImportedMovie", () => {
     const movie = normalizeImportedMovie(ophim, "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh");
 
     expect(movie.title).toBe("Giai Ngẫu Thiên Thành");
-    expect(movie.sources).toHaveLength(1);
+    expect(movie.sources.length).toBeGreaterThanOrEqual(1);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
     expect(movie.sources[0].preferredLinkType).toBe("embed");
     expect(movie.sources[0].episodes[0]).toMatchObject({
@@ -68,7 +68,7 @@ describe("normalizeImportedMovie", () => {
     expect(movie.imageUrl).toContain("vuong-mien-hoan-hao.jpg");
   });
 
-  it("filters NguonC to only Vietsub when multiple servers exist", () => {
+  it("preserves all NguonC servers when multiple playable sources exist", () => {
     const multiServerPayload = {
       status: "success",
       movie: {
@@ -94,9 +94,11 @@ describe("normalizeImportedMovie", () => {
     };
 
     const movie = normalizeImportedMovie(multiServerPayload, "https://phim.nguonc.com/api/film/vu-lam-linh");
-    expect(movie.sources).toHaveLength(1);
+    expect(movie.sources).toHaveLength(2);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
     expect(movie.sources[0].episodes).toHaveLength(2);
+    expect(movie.sources[1].sourceTitle).toBe("Thuyết minh #1");
+    expect(movie.sources[1].episodes).toHaveLength(1);
   });
 
   it("drops episodes with no playable URLs", () => {
@@ -123,7 +125,7 @@ describe("normalizeImportedMovie", () => {
     expect(movie.sources[0].episodes[0].episodeKey).toBe("tap-1");
   });
 
-  it("filters OPhim to only Vietsub when multiple servers exist", () => {
+  it("preserves all OPhim servers when multiple playable sources exist", () => {
     const multiServerPayload = {
       data: {
         item: {
@@ -150,8 +152,9 @@ describe("normalizeImportedMovie", () => {
     };
 
     const movie = normalizeImportedMovie(multiServerPayload, "https://ophim1.com/v1/api/phim/test-movie");
-    expect(movie.sources).toHaveLength(1);
+    expect(movie.sources).toHaveLength(2);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
+    expect(movie.sources[1].sourceTitle).toBe("Thuyết Minh #1");
   });
 });
 
@@ -216,11 +219,6 @@ describe("isNguoncUrl", () => {
 });
 
 describe("fetchImportPayloadInBrowser", () => {
-  beforeEach(() => {
-    delete process.env.NGUONC_PROXY_API_BASE_URL;
-    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
-  });
-
   it("resolves page URLs to API URLs before fetching", async () => {
     vi.stubGlobal(
       "fetch",
@@ -265,9 +263,7 @@ describe("fetchImportPayloadInBrowser", () => {
     expect((result.importedJson as { status: string }).status).toBe("success");
   });
 
-  it("tries the relay URL first when NGUONC_PROXY_API_BASE_URL is set", async () => {
-    process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
-
+  it("fetches the original upstream URL directly", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -281,14 +277,12 @@ describe("fetchImportPayloadInBrowser", () => {
     );
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "https://relay.example.com/api/film/vuong-mien-hoan-hao",
+      "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
     );
     expect(result.sourceUrl).toBe(
       "https://phim.nguonc.com/api/film/vuong-mien-hoan-hao",
     );
     expect((result.importedJson as { status: string }).status).toBe("success");
-
-    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
   });
 });
 

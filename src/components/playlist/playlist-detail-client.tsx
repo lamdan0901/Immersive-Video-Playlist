@@ -4,10 +4,10 @@ import { House, Library, List, Pencil, StepForward, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
+import { refreshSourceFromImportedJson } from "@/actions/import";
 import { savePlaybackProgress } from "@/actions/playback";
 import { softDeleteSource } from "@/actions/playlists";
 import { performClientRefresh } from "@/lib/client-refresh";
-import type { ClientRefreshResult } from "@/lib/client-refresh";
 import { EditorDrawer } from "./editor-drawer";
 import { EpisodeList } from "./episode-list";
 import { PlayerStage } from "./player-stage";
@@ -64,14 +64,20 @@ export function PlaylistDetailClient({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(new Set());
-  const [localRefreshes, setLocalRefreshes] = useState<Record<string, ClientRefreshResult>>({});
 
   const visibleSources = playlist.sources.filter((s) => !deletedSourceIds.has(s.id));
 
   const handleClientRefresh = useCallback(
     async (sourceId: string, sourceUrl: string): Promise<string> => {
       const source = playlist.sources.find((s) => s.id === sourceId);
-      if (!source) return "Source not found.";
+      if (!source) {
+        return "Source not found.";
+      }
+
+      const adminSecret = window.localStorage.getItem("adminSecret");
+      if (!adminSecret) {
+        return "Admin unlock required";
+      }
 
       try {
         const result = await performClientRefresh(
@@ -84,9 +90,23 @@ export function PlaylistDetailClient({
           source.episodes,
         );
 
-        setLocalRefreshes((prev) => ({ ...prev, [sourceId]: result }));
-        return `Refreshed source ${result.sourceTitle}.`;
+        const persisted = await refreshSourceFromImportedJson({
+          adminSecret,
+          playlistId: playlist.id,
+          sourceId: source.id,
+          sourceUrl: result.sourceUrl,
+          importedJson: result.importedJson,
+        });
+
+        if (!persisted.ok) {
+          console.error("[PlaylistDetailClient] refresh failed:", persisted.error);
+          return persisted.error;
+        }
+
+        router.refresh();
+        return persisted.data.message;
       } catch (error) {
+        console.error("[PlaylistDetailClient] refresh failed:", error);
         const message =
           error instanceof Error && error.message.trim()
             ? error.message
@@ -94,7 +114,7 @@ export function PlaylistDetailClient({
         return message;
       }
     },
-    [playlist.sources],
+    [playlist.id, playlist.sources, router],
   );
 
   const deleteSource = useCallback(
@@ -146,28 +166,10 @@ export function PlaylistDetailClient({
     [playlist, currentSourceId, visibleSources, router],
   );
 
-  const currentSource = (() => {
-    const base = playlist.sources.find((source) => source.id === currentSourceId) ??
-      playlist.sources[0] ??
-      null;
-    if (!base) return null;
-    const local = localRefreshes[base.id];
-    if (!local) return base;
-    return {
-      ...base,
-      sourceTitle: local.sourceTitle,
-      sourceUrl: local.sourceUrl,
-      preferredLinkType: local.preferredLinkType,
-      episodes: local.episodes.map((ep, i) => ({
-        id: `${base.id}:${ep.episodeKey}`,
-        episodeKey: ep.episodeKey,
-        title: ep.title,
-        embedUrl: ep.embedUrl,
-        m3u8Url: ep.m3u8Url,
-        lastPlayedSeconds: 0,
-      })),
-    };
-  })();
+  const currentSource =
+    playlist.sources.find((source) => source.id === currentSourceId) ??
+    playlist.sources[0] ??
+    null;
   const currentEpisode = currentSource?.episodes[currentEpisodeIndex] ?? null;
   const hasNextEpisode = currentSource
     ? currentEpisodeIndex < currentSource.episodes.length - 1

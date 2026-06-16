@@ -14,6 +14,7 @@ export type PlaylistSummary = SearchablePlaylist & {
   activeSourceLastPlayedEpisodeIndex: number;
   activeSourceTotalEpisodes: number;
   allSources: { title: string; totalEpisodes: number }[];
+  refreshSources: { id: string; sourceUrl: string }[];
 };
 
 async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
@@ -47,6 +48,7 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
           id: true,
           sourceTitle: true,
           lastPlayedEpisodeKey: true,
+          sourceUrl: true,
         },
       },
     },
@@ -137,6 +139,10 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
           : 0,
       activeSourceTotalEpisodes,
       allSources,
+      refreshSources: playlist.sources.map((source) => ({
+        id: source.id,
+        sourceUrl: source.sourceUrl,
+      })),
       banner: chooseBanner({
         title: playlist.title,
         bannerOverrideUrl: playlist.bannerOverrideUrl,

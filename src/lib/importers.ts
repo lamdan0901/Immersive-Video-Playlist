@@ -84,29 +84,6 @@ export function extractNguoncSlug(sourceUrl: string): string | null {
   }
 }
 
-export function getNguoncRelayBaseUrl(): string | undefined {
-  return (
-    process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL?.trim() ||
-    process.env.NGUONC_PROXY_API_BASE_URL?.trim() ||
-    undefined
-  );
-}
-
-export function resolveNguoncBrowserFallbackUrl(rawUrl: string): string | null {
-  if (!isNguoncUrl(rawUrl)) {
-    return null;
-  }
-
-  const relayBaseUrl = getNguoncRelayBaseUrl();
-  const slug = extractNguoncSlug(rawUrl);
-
-  if (!relayBaseUrl || !slug) {
-    return null;
-  }
-
-  return `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
-}
-
 export function buildImportRequestHeaders(
   sourceUrl: string,
   accept: string,
@@ -136,38 +113,6 @@ export async function fetchImportPayloadInBrowser(rawUrl: string): Promise<{
   importedJson: unknown;
 }> {
   const sourceUrl = resolveApiUrl(rawUrl);
-
-  const relayUrl = resolveNguoncBrowserFallbackUrl(rawUrl);
-  if (relayUrl) {
-    console.log(`[fetchImportPayloadInBrowser] Trying relay: ${relayUrl}`);
-    try {
-      const response = await fetch(relayUrl);
-      if (response.ok) {
-        console.log("[fetchImportPayloadInBrowser] Relay succeeded");
-        return {
-          sourceUrl,
-          importedJson: await response.json(),
-        };
-      }
-
-      console.log(
-        `[fetchImportPayloadInBrowser] Relay failed with status: ${response.status}`,
-      );
-    } catch (error) {
-      console.log("[fetchImportPayloadInBrowser] Relay error:", error);
-    }
-  } else if (isNguoncUrl(rawUrl)) {
-    const relayBaseUrl = getNguoncRelayBaseUrl();
-    const slug = extractNguoncSlug(rawUrl);
-    console.log(
-      "[fetchImportPayloadInBrowser] Relay not available:",
-      JSON.stringify({
-        hasRelayBaseUrl: !!relayBaseUrl,
-        relayBaseUrl: relayBaseUrl ?? null,
-        hasSlug: !!slug,
-      }),
-    );
-  }
 
   let lastStatus = 0;
 
@@ -399,28 +344,31 @@ function normalizeServers(
   servers: RawServer[],
   sourceUrl: string,
 ): ImportedSource[] {
-  return servers.map((server, index) => {
-    const sourceTitle = asString(server.server_name) ?? `Source ${index + 1}`;
-    const sourceKey =
-      sourceTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "") || `source-${index + 1}`;
-    const rows = Array.isArray(server.server_data)
-      ? server.server_data
-      : Array.isArray(server.items)
-        ? server.items
-        : [];
-    const preferredLinkType: LinkType = "embed";
+  return servers
+    .map((server, index) => {
+      const sourceTitle = asString(server.server_name) ?? `Source ${index + 1}`;
+      const sourceKey =
+        sourceTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") || `source-${index + 1}`;
+      const rows = Array.isArray(server.server_data)
+        ? server.server_data
+        : Array.isArray(server.items)
+          ? server.items
+          : [];
+      const preferredLinkType: LinkType = "embed";
+      const episodes = normalizeEpisodes(rows, sourceKey);
 
-    return {
-      sourceKey,
-      sourceTitle,
-      sourceUrl,
-      preferredLinkType,
-      episodes: normalizeEpisodes(rows, sourceKey),
-    };
-  });
+      return {
+        sourceKey,
+        sourceTitle,
+        sourceUrl,
+        preferredLinkType,
+        episodes,
+      };
+    })
+    .filter((source) => source.episodes.length > 0);
 }
 
 export function normalizeImportedMovie(
@@ -445,11 +393,6 @@ export function normalizeImportedMovie(
   const allServers = Array.isArray(item.episodes)
     ? (item.episodes as RawServer[])
     : [];
-  const vietsubServers = allServers.filter((server) => {
-    const name = asString(server.server_name);
-    return name != null && name.toLowerCase().startsWith("vietsub");
-  });
-  const rawServers = vietsubServers.length > 0 ? vietsubServers : allServers;
   const responseData = record.data as Record<string, unknown> | undefined;
   const seoSchema = asRecord(
     asRecord(asRecord(responseData?.seoOnPage)?.seoSchema),
@@ -467,6 +410,6 @@ export function normalizeImportedMovie(
     imageUrl,
     posterUrl,
     metadata: item,
-    sources: normalizeServers(rawServers, sourceUrl),
+    sources: normalizeServers(allServers, sourceUrl),
   };
 }

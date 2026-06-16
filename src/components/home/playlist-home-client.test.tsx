@@ -83,6 +83,12 @@ const playlists = [
     activeSourceLastPlayedEpisodeIndex: 0,
     activeSourceTotalEpisodes: 0,
     allSources: [{ title: "Vietsub", totalEpisodes: 0 }],
+    refreshSources: [
+      {
+        id: "source-1",
+        sourceUrl: "https://ophim1.com/v1/api/phim/fate-chooses-you",
+      },
+    ],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #14532d, #1d4ed8)",
@@ -104,6 +110,12 @@ const playlists = [
     activeSourceLastPlayedEpisodeIndex: 1,
     activeSourceTotalEpisodes: 24,
     allSources: [{ title: "Engsub", totalEpisodes: 24 }],
+    refreshSources: [
+      {
+        id: "source-2",
+        sourceUrl: "https://ophim1.com/v1/api/phim/pinned-show",
+      },
+    ],
     banner: {
       type: "gradient" as const,
       value: "linear-gradient(135deg, #7f1d1d, #b45309)",

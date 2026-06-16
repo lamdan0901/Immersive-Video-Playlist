@@ -1,6 +1,0 @@
-name = "nguonc-relay"
-main = "worker.js"
-compatibility_date = "2026-06-09"
-
-[observability]
-enabled = true

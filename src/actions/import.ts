@@ -14,8 +14,6 @@ import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import {
   buildImportRequestHeaders,
   extractNguoncPayloadFromHtml,
-  extractNguoncSlug,
-  getNguoncRelayBaseUrl,
   isNguoncUrl,
   normalizeImportedMovie,
   resolveApiUrl,
@@ -115,27 +113,6 @@ function refreshPlaylistSourcesMessage(
   return `Refreshed ${sourceCountLabel(refreshedCount)}; ${failedCount} failed.`;
 }
 
-function resolveNguoncRelayFetchUrl(sourceUrl: string): string {
-  if (!isNguoncUrl(sourceUrl)) {
-    return sourceUrl;
-  }
-
-  const relayBaseUrl = getNguoncRelayBaseUrl();
-  const slug = extractNguoncSlug(sourceUrl);
-
-  if (!relayBaseUrl || !slug) {
-    console.log(
-      "[resolveNguoncRelayFetchUrl] Relay not configured:",
-      JSON.stringify({ relayBaseUrl: !!relayBaseUrl, slug: !!slug }),
-    );
-    return sourceUrl;
-  }
-
-  const relayUrl = `${relayBaseUrl.replace(/\/+$/, "")}/${slug}`;
-  console.log("[resolveNguoncRelayFetchUrl] Using relay:", relayUrl);
-  return relayUrl;
-}
-
 async function createPlaylistFromImportedJsonInternal(
   sourceUrl: string,
   importedJson: unknown,
@@ -230,25 +207,17 @@ async function createPlaylistFromImportedJsonInternal(
 }
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
-  const fetchUrl = resolveNguoncRelayFetchUrl(url);
-  if (fetchUrl !== url) {
-    console.log("[fetchSourceJson] Fetching via relay:", fetchUrl);
-  } else {
-    console.log("[fetchSourceJson] Fetching directly (no relay):", url);
-  }
-  const response = await fetch(fetchUrl, {
+  console.log("[fetchSourceJson] Fetching:", url);
+  const response = await fetch(url, {
     cache: "no-store",
-    headers:
-      fetchUrl === url
-        ? buildImportRequestHeaders(url, "application/json,text/plain,*/*")
-        : undefined,
+    headers: buildImportRequestHeaders(url, "application/json,text/plain,*/*"),
     signal,
   });
 
   if (!response.ok) {
     console.warn("[fetchSourceJson] Primary fetch failed", {
       requestedUrl: url,
-      fetchUrl,
+      fetchUrl: url,
       status: response.status,
     });
 
@@ -347,6 +316,122 @@ async function updateFailedImport(
       version: sql<number>`${sources.version} + 1`,
     })
     .where(eq(sources.id, sourceId));
+}
+
+async function performSourceRefreshFromImportedJson(
+  sourceRow: {
+    id: string;
+    playlistId: string;
+    sourceKey: string;
+    sourceTitle: string;
+    sortOrder: number;
+    sourceUrl: string;
+  },
+  importedJson: unknown,
+  sourceUrlOverride?: string,
+) {
+  const sourceUrl = sourceUrlOverride?.trim() || sourceRow.sourceUrl;
+  const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
+  const importedSource = matchImportedSource(sourceRow, importedMovie.sources);
+
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sources)
+      .set({
+        sourceTitle: sourceTitleFromUrl(sourceUrl),
+        sourceUrl,
+        preferredLinkType: importedSource.preferredLinkType,
+        importError: null,
+        lastRefreshedAt: now,
+        metadata: importedSource as unknown as Record<string, unknown>,
+        updatedAt: now,
+        deletedAt: null,
+        purgeAfter: null,
+        version: sql<number>`${sources.version} + 1`,
+      })
+      .where(
+        and(
+          eq(sources.id, sourceRow.id),
+          eq(sources.playlistId, sourceRow.playlistId),
+        ),
+      );
+
+    const existingEpisodes = await tx
+      .select({
+        episodeKey: episodes.episodeKey,
+        title: episodes.title,
+        slug: episodes.slug,
+        filename: episodes.filename,
+        sortOrder: episodes.sortOrder,
+        deletedAt: episodes.deletedAt,
+      })
+      .from(episodes)
+      .where(eq(episodes.sourceId, sourceRow.id));
+
+    const normalizedEpisodes = preserveEpisodeIdentity(
+      existingEpisodes,
+      importedSource.episodes,
+    );
+    const result = reconcileEpisodes(existingEpisodes, normalizedEpisodes);
+
+    if (result.upserts.length > 0) {
+      await tx
+        .insert(episodes)
+        .values(
+          result.upserts.map((episode) => ({
+            sourceId: sourceRow.id,
+            episodeKey: episode.episodeKey,
+            title: episode.title,
+            slug: episode.slug,
+            filename: episode.filename,
+            embedUrl: episode.embedUrl,
+            m3u8Url: episode.m3u8Url,
+            sortOrder: episode.sortOrder,
+            updatedAt: now,
+            deletedAt: null,
+            purgeAfter: null,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [episodes.sourceId, episodes.episodeKey],
+          targetWhere: sql`${episodes.deletedAt} IS NULL`,
+          set: {
+            title: sql`excluded.title`,
+            slug: sql`excluded.slug`,
+            filename: sql`excluded.filename`,
+            embedUrl: sql`excluded.embed_url`,
+            m3u8Url: sql`excluded.m3u8_url`,
+            sortOrder: sql`excluded.sort_order`,
+            deletedAt: null,
+            purgeAfter: null,
+            updatedAt: now,
+            version: sql<number>`${episodes.version} + 1`,
+          },
+        });
+    }
+
+    if (result.softDeletes.length > 0) {
+      await tx
+        .update(episodes)
+        .set({
+          deletedAt: now,
+          purgeAfter: thirtyDaysFromNow,
+          updatedAt: now,
+          version: sql<number>`${episodes.version} + 1`,
+        })
+        .where(
+          and(
+            eq(episodes.sourceId, sourceRow.id),
+            inArray(episodes.episodeKey, result.softDeletes),
+            isNull(episodes.deletedAt),
+          ),
+        );
+    }
+
+    await writeSnapshot(tx, sourceRow.id, importedSource);
+  });
 }
 
 export async function createPlaylistFromUrl(input: {
@@ -604,6 +689,76 @@ export async function refreshSource(input: {
   };
 }
 
+export async function refreshSourceFromImportedJson(input: {
+  adminSecret: string;
+  playlistId: string;
+  sourceId: string;
+  sourceUrl: string;
+  importedJson: unknown;
+}): Promise<ActionResult<RefreshSuccess>> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  const rawUrl = input.sourceUrl.trim();
+  if (!rawUrl) {
+    return { ok: false, error: "Source URL is required before refresh." };
+  }
+
+  const sourceUrl = resolveApiUrl(rawUrl);
+
+  const sourceRows = await db
+    .select({
+      id: sources.id,
+      playlistId: sources.playlistId,
+      sourceKey: sources.sourceKey,
+      sourceTitle: sources.sourceTitle,
+      sortOrder: sources.sortOrder,
+    })
+    .from(sources)
+    .where(
+      and(
+        eq(sources.id, input.sourceId),
+        eq(sources.playlistId, input.playlistId),
+        isNull(sources.deletedAt),
+      ),
+    );
+
+  const sourceRow = sourceRows[0];
+  if (!sourceRow) {
+    return { ok: false, error: "Source not found." };
+  }
+
+  try {
+    await performSourceRefreshFromImportedJson(
+      { ...sourceRow, sourceUrl },
+      input.importedJson,
+    );
+  } catch (error) {
+    console.error("[refreshSourceFromImportedJson] failed:", sourceUrl, error);
+    const message = asErrorMessage(error);
+    await updateFailedImport(input.sourceId, sourceUrl, message);
+    revalidatePath(`/playlist/${input.playlistId}`);
+    return { ok: false, error: message };
+  }
+
+  await logMutation(
+    "source.refresh",
+    `Refreshed source ${sourceRow.sourceTitle}`,
+    input.sourceId,
+  );
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidatePath("/trash");
+  revalidateTag("playlists");
+
+  return {
+    ok: true,
+    data: {
+      message: `Refreshed source ${sourceRow.sourceTitle}.`,
+    },
+  };
+}
+
 export async function refreshPlaylistSources(input: {
   adminSecret: string;
   playlistId: string;
@@ -674,6 +829,95 @@ export async function refreshPlaylistSources(input: {
   };
 }
 
+export async function refreshPlaylistSourcesFromImportedJson(input: {
+  adminSecret: string;
+  playlistId: string;
+  refreshes: Array<{
+    sourceId: string;
+    sourceUrl: string;
+    importedJson: unknown;
+  }>;
+}): Promise<ActionResult<RefreshPlaylistSourcesSuccess>> {
+  const auth = assertAdminSecret(input.adminSecret);
+  if (!auth.ok) return auth;
+
+  if (input.refreshes.length === 0) {
+    return { ok: false, error: "No sources to refresh." };
+  }
+
+  const sourceRows = await db
+    .select({
+      id: sources.id,
+      playlistId: sources.playlistId,
+      sourceKey: sources.sourceKey,
+      sourceTitle: sources.sourceTitle,
+      sortOrder: sources.sortOrder,
+      sourceUrl: sources.sourceUrl,
+    })
+    .from(sources)
+    .where(
+      and(eq(sources.playlistId, input.playlistId), isNull(sources.deletedAt)),
+    )
+    .orderBy(asc(sources.sortOrder));
+
+  const refreshMap = new Map(
+    input.refreshes.map((refresh) => [refresh.sourceId, refresh]),
+  );
+
+  let refreshedCount = 0;
+  let failedCount = 0;
+
+  for (const sourceRow of sourceRows) {
+    const refresh = refreshMap.get(sourceRow.id);
+    if (!refresh) {
+      continue;
+    }
+
+    const sourceUrl = resolveApiUrl(refresh.sourceUrl.trim());
+
+    try {
+      await performSourceRefreshFromImportedJson(
+        { ...sourceRow, sourceUrl },
+        refresh.importedJson,
+      );
+      refreshedCount++;
+    } catch (error) {
+      console.error(
+        "[refreshPlaylistSourcesFromImportedJson] failed:",
+        sourceUrl,
+        error,
+      );
+      failedCount++;
+      await updateFailedImport(sourceRow.id, sourceUrl, asErrorMessage(error));
+    }
+  }
+
+  if (refreshedCount === 0 && failedCount === 0) {
+    return { ok: false, error: "No sources to refresh." };
+  }
+
+  const message = refreshPlaylistSourcesMessage(refreshedCount, failedCount);
+
+  await logMutation("source.refresh", message, input.playlistId);
+  revalidatePath("/");
+  revalidatePath(`/playlist/${input.playlistId}`);
+  revalidatePath("/trash");
+  revalidateTag("playlists");
+
+  if (failedCount > 0) {
+    return { ok: false, error: message };
+  }
+
+  return {
+    ok: true,
+    data: {
+      message,
+      refreshedCount,
+      failedCount,
+    },
+  };
+}
+
 async function performSourceRefresh(
   sourceRow: {
     id: string;
@@ -688,107 +932,10 @@ async function performSourceRefresh(
 ) {
   const sourceUrl = sourceUrlOverride?.trim() || sourceRow.sourceUrl;
   const importedJson = await fetchSourceJson(sourceUrl, signal);
-  const importedMovie = normalizeImportedMovie(importedJson, sourceUrl);
-  const importedSource = matchImportedSource(sourceRow, importedMovie.sources);
-
-  const now = new Date();
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(sources)
-      .set({
-        sourceTitle: sourceTitleFromUrl(sourceUrl),
-        sourceUrl,
-        preferredLinkType: importedSource.preferredLinkType,
-        importError: null,
-        lastRefreshedAt: now,
-        metadata: importedSource as unknown as Record<string, unknown>,
-        updatedAt: now,
-        deletedAt: null,
-        purgeAfter: null,
-        version: sql<number>`${sources.version} + 1`,
-      })
-      .where(
-        and(
-          eq(sources.id, sourceRow.id),
-          eq(sources.playlistId, sourceRow.playlistId),
-        ),
-      );
-
-    const existingEpisodes = await tx
-      .select({
-        episodeKey: episodes.episodeKey,
-        title: episodes.title,
-        slug: episodes.slug,
-        filename: episodes.filename,
-        sortOrder: episodes.sortOrder,
-        deletedAt: episodes.deletedAt,
-      })
-      .from(episodes)
-      .where(eq(episodes.sourceId, sourceRow.id));
-
-    const normalizedEpisodes = preserveEpisodeIdentity(
-      existingEpisodes,
-      importedSource.episodes,
-    );
-    const result = reconcileEpisodes(existingEpisodes, normalizedEpisodes);
-
-    if (result.upserts.length > 0) {
-      await tx
-        .insert(episodes)
-        .values(
-          result.upserts.map((episode) => ({
-            sourceId: sourceRow.id,
-            episodeKey: episode.episodeKey,
-            title: episode.title,
-            slug: episode.slug,
-            filename: episode.filename,
-            embedUrl: episode.embedUrl,
-            m3u8Url: episode.m3u8Url,
-            sortOrder: episode.sortOrder,
-            updatedAt: now,
-            deletedAt: null,
-            purgeAfter: null,
-          })),
-        )
-        .onConflictDoUpdate({
-          target: [episodes.sourceId, episodes.episodeKey],
-          targetWhere: sql`${episodes.deletedAt} IS NULL`,
-          set: {
-            title: sql`excluded.title`,
-            slug: sql`excluded.slug`,
-            filename: sql`excluded.filename`,
-            embedUrl: sql`excluded.embed_url`,
-            m3u8Url: sql`excluded.m3u8_url`,
-            sortOrder: sql`excluded.sort_order`,
-            deletedAt: null,
-            purgeAfter: null,
-            updatedAt: now,
-            version: sql<number>`${episodes.version} + 1`,
-          },
-        });
-    }
-
-    if (result.softDeletes.length > 0) {
-      await tx
-        .update(episodes)
-        .set({
-          deletedAt: now,
-          purgeAfter: thirtyDaysFromNow,
-          updatedAt: now,
-          version: sql<number>`${episodes.version} + 1`,
-        })
-        .where(
-          and(
-            eq(episodes.sourceId, sourceRow.id),
-            inArray(episodes.episodeKey, result.softDeletes),
-            isNull(episodes.deletedAt),
-          ),
-        );
-    }
-
-    await writeSnapshot(tx, sourceRow.id, importedSource);
-  });
+  await performSourceRefreshFromImportedJson(
+    { ...sourceRow, sourceUrl },
+    importedJson,
+  );
 }
 
 async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {

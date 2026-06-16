@@ -15,6 +15,7 @@ export type ClientRefreshEpisode = {
 
 export type ClientRefreshResult = {
   episodes: ClientRefreshEpisode[];
+  importedJson: unknown;
   sourceTitle: string;
   sourceUrl: string;
   preferredLinkType: LinkType;
@@ -62,6 +63,7 @@ export async function performClientRefresh(
       embedUrl: ep.embedUrl,
       m3u8Url: ep.m3u8Url,
     })),
+    importedJson,
     sourceTitle: importedSource.sourceTitle,
     sourceUrl: importedSource.sourceUrl,
     preferredLinkType: importedSource.preferredLinkType,

@@ -7,7 +7,9 @@ import {
   createSourceFromUrl,
   fetchSourceJson,
   performAutoRefresh,
+  refreshPlaylistSourcesFromImportedJson,
   refreshPlaylistSources,
+  refreshSourceFromImportedJson,
 } from "./import";
 
 const {
@@ -133,9 +135,12 @@ vi.mock("@/db/client", () => ({
   db: {
     select: vi.fn(() => ({
       from: () => ({
-        where: () => ({
-          orderBy: async () => dbSelectRows,
-        }),
+        where: () => {
+          const rows = Promise.resolve(dbSelectRows);
+          return Object.assign(rows, {
+            orderBy: async () => dbSelectRows,
+          });
+        },
         innerJoin: () => ({
           where: () => ({
             orderBy: async () => dbSelectRows,
@@ -159,8 +164,6 @@ vi.mock("./playlists", () => ({
 describe("createSourceFromUrl", () => {
   beforeEach(() => {
     process.env.ADMIN_SECRET = "secret";
-    delete process.env.NGUONC_PROXY_API_BASE_URL;
-    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
     dbSelectRows.length = 0;
     playlistInsertValues.length = 0;
     sourceInsertValues.length = 0;
@@ -187,9 +190,9 @@ describe("createSourceFromUrl", () => {
 
     expect(result.ok).toBe(true);
     expect(sourceInsertValues).not.toHaveLength(0);
-    expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
-      "ophim1.com",
-    ]);
+    expect(
+      sourceInsertValues.every((values) => values.sourceTitle === "ophim1.com"),
+    ).toBe(true);
   });
 
   it("falls back to the NguonC film page when the API returns 403", async () => {
@@ -250,8 +253,6 @@ describe("createSourceFromUrl", () => {
 
 describe("fetchSourceJson", () => {
   beforeEach(() => {
-    delete process.env.NGUONC_PROXY_API_BASE_URL;
-    delete process.env.NEXT_PUBLIC_NGUONC_PROXY_API_BASE_URL;
     dbSelectRows.length = 0;
   });
 
@@ -290,9 +291,7 @@ describe("fetchSourceJson", () => {
     );
   });
 
-  it("uses the configured NguonC relay for server-side fetches", async () => {
-    process.env.NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
-
+  it("fetches the original NguonC API URL directly on the server", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => nguonc,
@@ -302,17 +301,15 @@ describe("fetchSourceJson", () => {
     await fetchSourceJson("https://phim.nguonc.com/api/film/huyen-thoai-linh-bep");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://relay.example.com/api/film/huyen-thoai-linh-bep",
+      "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
       expect.objectContaining({
         cache: "no-store",
-        headers: undefined,
+        headers: expect.any(Object),
       }),
     );
   });
 
-  it("logs the primary relay failure status before trying the HTML fallback", async () => {
-    process.env.NGUONC_PROXY_API_BASE_URL = "https://relay.example.com/api/film";
-
+  it("logs the primary failure status before trying the HTML fallback", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -330,7 +327,7 @@ describe("fetchSourceJson", () => {
       "[fetchSourceJson] Primary fetch failed",
       expect.objectContaining({
         requestedUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
-        fetchUrl: "https://relay.example.com/api/film/huyen-thoai-linh-bep",
+        fetchUrl: "https://phim.nguonc.com/api/film/huyen-thoai-linh-bep",
         status: 403,
       }),
     );
@@ -402,5 +399,65 @@ describe("fetchSourceJson", () => {
     }
     expect(result.data.message).toBe("Refreshed 1 source.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes a single source from browser-imported JSON without fetching upstream again", async () => {
+    process.env.ADMIN_SECRET = "secret";
+    dbSelectRows.push({
+      id: "ophim-source",
+      playlistId: "playlist-1",
+      sourceKey: "vietsub-1",
+      sourceTitle: "ophim1.com",
+      sortOrder: 0,
+      sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await refreshSourceFromImportedJson({
+      adminSecret: "secret",
+      playlistId: "playlist-1",
+      sourceId: "ophim-source",
+      sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+      importedJson: ophim,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes playlist sources from browser-imported JSON without fetching upstream again", async () => {
+    process.env.ADMIN_SECRET = "secret";
+    dbSelectRows.push({
+      id: "ophim-source",
+      playlistId: "playlist-1",
+      sourceKey: "vietsub-1",
+      sourceTitle: "ophim1.com",
+      sortOrder: 0,
+      sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await refreshPlaylistSourcesFromImportedJson({
+      adminSecret: "secret",
+      playlistId: "playlist-1",
+      refreshes: [
+        {
+          sourceId: "ophim-source",
+          sourceUrl: "https://ophim1.com/v1/api/phim/giai-ngau-thien-thanh",
+          importedJson: ophim,
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    expect(result.data.message).toBe("Refreshed 1 source.");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

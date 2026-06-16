@@ -1,0 +1,301 @@
+{
+    "status": "success",
+    "message": "",
+    "data": {
+        "seoOnPage": {
+            "og_type": "video.movie",
+            "titleHead": "Kiều Sở-Ashes to Crown (2026) [HD-Vietsub]",
+            "seoSchema": {
+                "@context": "https://schema.org",
+                "@type": "TvSeries",
+                "name": "Kiều Sở-Ashes to Crown (2026) [HD-Vietsub]",
+                "dateModified": "2026-06-02T17:53:34.000Z",
+                "dateCreated": "2026-06-02T17:53:34.000Z",
+                "url": "https://ophim17.cc/phim/kieu-so",
+                "datePublished": "2026-06-02T17:53:34.000Z",
+                "image": "https://img.ophim.live/uploads/movies/kieu-so-thumb.jpg",
+                "director": "杨龙"
+            },
+            "descriptionHead": "Sở Triêu, con gái đại tướng quân, vì muốn thay đổi số phận bi thảm là quân cờ cho Tiêu Tuần đoạt quyền đã quyết định chủ động tấn công. Với sự hỗ trợ của Tạ Yến Lai, nàng vượt...",
+            "og_image": [
+                "movies/kieu-so-thumb.jpg",
+                "movies/kieu-so-thumb.jpg"
+            ],
+            "updated_time": 1781629924000,
+            "og_url": "phim/kieu-so"
+        },
+        "breadCrumb": [
+            {
+                "name": "Phim Bộ",
+                "slug": "/danh-sach/phim-bo",
+                "position": 2
+            },
+            {
+                "name": "Trung Quốc",
+                "slug": "/quoc-gia/trung-quoc",
+                "position": 3
+            },
+            {
+                "name": "Viễn Tưởng",
+                "slug": "/the-loai/vien-tuong",
+                "position": 3
+            },
+            {
+                "name": "Khoa Học",
+                "slug": "/the-loai/khoa-hoc",
+                "position": 3
+            },
+            {
+                "name": "Chính kịch",
+                "slug": "/the-loai/chinh-kich",
+                "position": 3
+            },
+            {
+                "name": "Kiều Sở",
+                "isCurrent": true,
+                "position": 4
+            }
+        ],
+        "params": {
+            "slug": "kieu-so",
+            "includeUnpublished": false
+        },
+        "item": {
+            "tmdb": {
+                "type": "tv",
+                "id": "289271",
+                "season": 1,
+                "vote_average": 8,
+                "vote_count": 1
+            },
+            "imdb": {
+                "id": "tt37140755",
+                "vote_average": 0,
+                "vote_count": 0
+            },
+            "created": {
+                "time": "2026-06-02T17:53:34.000Z"
+            },
+            "modified": {
+                "time": "2026-06-16T17:12:04.000Z"
+            },
+            "_id": "6a1eb62ec52ec62c8b184344",
+            "name": "Kiều Sở",
+            "slug": "kieu-so",
+            "origin_name": "Ashes to Crown",
+            "alternative_names": [
+                "Qiao Chu",
+                "楚后",
+                "Chu hou",
+                "Qiao chu",
+                "翘楚"
+            ],
+            "content": "<p>Sở Triêu, con gái đại tướng quân, vì muốn thay đổi số phận bi thảm là quân cờ cho Tiêu Tuần đoạt quyền đã quyết định chủ động tấn công. Với sự hỗ trợ của Tạ Yến Lai, nàng vượt bao hiểm nguy, hộ tống hoàng trưởng tôn vào cung, đấu trí trước điện, phò tá hoàng trưởng tôn kế vị, chặt đứt con đường xưng đế của Tiêu Tuần. Tân đế lên ngôi khi Đại Sở thù trong giặc ngoài, Sở Triêu cùng Tạ Yến Lai vừa khéo léo đối nội vừa cầm quân dẹp loạn, thay đổi vận mệnh của mình, mang lại thái bình cho bá tánh.</p>",
+            "type": "series",
+            "status": "ongoing",
+            "thumb_url": "kieu-so-thumb.jpg",
+            "poster_url": "kieu-so-poster.jpg",
+            "is_copyright": false,
+            "sub_docquyen": false,
+            "chieurap": false,
+            "is_published": true,
+            "trailer_url": "https://www.youtube.com/watch?v=P2BMhVUhSh4",
+            "time": "? phút/tập",
+            "episode_current": "Tập 20",
+            "episode_total": "24 Tập",
+            "quality": "HD",
+            "lang": "Vietsub",
+            "lang_key": [
+                "vs"
+            ],
+            "notify": "",
+            "showtimes": "",
+            "year": 2026,
+            "view": 0,
+            "actor": [
+                "陈都灵",
+                "周翊然",
+                "唐晓天",
+                "王瑞昌",
+                "吴施乐",
+                "高茂桐"
+            ],
+            "director": [
+                "杨龙"
+            ],
+            "category": [
+                {
+                    "id": "620a2282e0fc277084dfd435",
+                    "name": "Viễn Tưởng",
+                    "slug": "vien-tuong"
+                },
+                {
+                    "id": "620a229be0fc277084dfd4dd",
+                    "name": "Khoa Học",
+                    "slug": "khoa-hoc"
+                },
+                {
+                    "id": "620f3d2b91fa4af90ab697fe",
+                    "name": "Chính kịch",
+                    "slug": "chinh-kich"
+                }
+            ],
+            "country": [
+                {
+                    "id": "62093063196e9f4ab6b448b8",
+                    "name": "Trung Quốc",
+                    "slug": "trung-quoc"
+                }
+            ],
+            "episodes": [
+                {
+                    "server_name": "Vietsub #1",
+                    "is_ai": false,
+                    "server_data": [
+                        {
+                            "name": "1",
+                            "slug": "1",
+                            "filename": "Kiều sở_S01E01_Tập 1",
+                            "link_embed": "https://vip.opstream90.com/share/41974ba26aec1036c02ecd1d7647c37d",
+                            "link_m3u8": "https://vip.opstream90.com/20260602/33608_41974ba2/index.m3u8"
+                        },
+                        {
+                            "name": "2",
+                            "slug": "2",
+                            "filename": "Kiều sở_S01E02_Tập 2",
+                            "link_embed": "https://vip.opstream90.com/share/7398bb10be5667e31a146489d65cf5f6",
+                            "link_m3u8": "https://vip.opstream90.com/20260602/33609_7398bb10/index.m3u8"
+                        },
+                        {
+                            "name": "3",
+                            "slug": "3",
+                            "filename": "Kiều sở_S01E03_Tập 3",
+                            "link_embed": "https://vip.opstream90.com/share/ef152a79c2f6111858309f64e2d68ebd",
+                            "link_m3u8": "https://vip.opstream90.com/20260602/33610_ef152a79/index.m3u8"
+                        },
+                        {
+                            "name": "4",
+                            "slug": "4",
+                            "filename": "Kiều sở_S01E04_Tập 4",
+                            "link_embed": "https://vip.opstream90.com/share/a776d3cf1b33e6e4a43d00a11c2fa783",
+                            "link_m3u8": "https://vip.opstream90.com/20260602/33611_a776d3cf/index.m3u8"
+                        },
+                        {
+                            "name": "5",
+                            "slug": "5",
+                            "filename": "Kiều sở_S01E05_Tập 5",
+                            "link_embed": "https://vip.opstream90.com/share/a8caeaa601d8ddb3bff4e38d74435d5f",
+                            "link_m3u8": "https://vip.opstream90.com/20260603/33667_a8caeaa6/index.m3u8"
+                        },
+                        {
+                            "name": "6",
+                            "slug": "6",
+                            "filename": "Kiều sở_S01E06_Tập 6",
+                            "link_embed": "https://vip.opstream90.com/share/b1848fc4e4d316fe2105f1228418a8bd",
+                            "link_m3u8": "https://vip.opstream90.com/20260603/33680_b1848fc4/index.m3u8"
+                        },
+                        {
+                            "name": "7",
+                            "slug": "7",
+                            "filename": "Kiều sở_S01E07_Tập 7",
+                            "link_embed": "https://vip.opstream90.com/share/751e262f065a17a3d0294b36c9a1427d",
+                            "link_m3u8": "https://vip.opstream90.com/20260604/33816_751e262f/index.m3u8"
+                        },
+                        {
+                            "name": "8",
+                            "slug": "8",
+                            "filename": "Kiều sở_S01E08_Tập 8",
+                            "link_embed": "https://vip.opstream90.com/share/3c8caa1e965921a89815a28123be4692",
+                            "link_m3u8": "https://vip.opstream90.com/20260605/33877_3c8caa1e/index.m3u8"
+                        },
+                        {
+                            "name": "9",
+                            "slug": "9",
+                            "filename": "Kiều sở_S01E09_Tập 9",
+                            "link_embed": "https://vip.opstream90.com/share/746bfc235e548f1f5ccce70fb9589d56",
+                            "link_m3u8": "https://vip.opstream90.com/20260605/33878_746bfc23/index.m3u8"
+                        },
+                        {
+                            "name": "10",
+                            "slug": "10",
+                            "filename": "Kiều sở_S01E10_Tập 10",
+                            "link_embed": "https://vip.opstream90.com/share/bbb8541a11eccdc1bbe0400854b72293",
+                            "link_m3u8": "https://vip.opstream90.com/20260606/34013_bbb8541a/index.m3u8"
+                        },
+                        {
+                            "name": "11",
+                            "slug": "11",
+                            "filename": "Kiều sở_S01E11_Tập 11",
+                            "link_embed": "https://vip.opstream90.com/share/5c7768be6ec1b2cd22387346d1bf6388",
+                            "link_m3u8": "https://vip.opstream90.com/20260607/34278_5c7768be/index.m3u8"
+                        },
+                        {
+                            "name": "12",
+                            "slug": "12",
+                            "filename": "Kiều sở_S01E12_Tập 12",
+                            "link_embed": "https://vip.opstream90.com/share/7ca4d3846a7d9aad42da15d4289c7ada",
+                            "link_m3u8": "https://vip.opstream90.com/20260608/34304_7ca4d384/index.m3u8"
+                        },
+                        {
+                            "name": "13",
+                            "slug": "13",
+                            "filename": "Kiều sở_S01E13_Tập 13",
+                            "link_embed": "https://vip.opstream90.com/share/16c07e910397fb3910aad491c8c25e55",
+                            "link_m3u8": "https://vip.opstream90.com/20260609/34358_16c07e91/index.m3u8"
+                        },
+                        {
+                            "name": "14",
+                            "slug": "14",
+                            "filename": "Kiều sở_S01E14_Tập 14",
+                            "link_embed": "https://vip.opstream90.com/share/90a9beec2356e3613f667e20704c953d",
+                            "link_m3u8": "https://vip.opstream90.com/20260610/34428_90a9beec/index.m3u8"
+                        },
+                        {
+                            "name": "15",
+                            "slug": "15",
+                            "filename": "Kiều sở_S01E15_Tập 15",
+                            "link_embed": "https://vip.opstream90.com/share/27f2d2e6436617e42e2f251113eeb791",
+                            "link_m3u8": "https://vip.opstream90.com/20260612/34677_27f2d2e6/index.m3u8"
+                        },
+                        {
+                            "name": "16",
+                            "slug": "16",
+                            "filename": "Kiều sở_S01E16_Tập 16",
+                            "link_embed": "https://vip.opstream90.com/share/23270334cb68c628783066181ece864b",
+                            "link_m3u8": "https://vip.opstream90.com/20260612/34743_23270334/index.m3u8"
+                        },
+                        {
+                            "name": "17",
+                            "slug": "17",
+                            "filename": "Kiều sở_S01E17_Tập 17",
+                            "link_embed": "https://vip.opstream90.com/share/307c35d496ae3dffcfc3fa7eb02c692e",
+                            "link_m3u8": "https://vip.opstream90.com/20260613/34786_307c35d4/index.m3u8"
+                        },
+                        {
+                            "name": "18",
+                            "slug": "18",
+                            "filename": "Kiều sở_S01E18_Tập 18",
+                            "link_embed": "https://vip.opstream90.com/share/87de7ec757b578fbfb67cd9f99236efd",
+                            "link_m3u8": "https://vip.opstream90.com/20260615/34827_87de7ec7/index.m3u8"
+                        },
+                        {
+                            "name": "19",
+                            "slug": "19",
+                            "filename": "Kiều sở_S01E19_Tập 19",
+                            "link_embed": "https://vip.opstream90.com/share/4674be98075d966f02c2c1021806839a",
+                            "link_m3u8": "https://vip.opstream90.com/20260615/34828_4674be98/index.m3u8"
+                        },
+                        {
+                            "name": "20",
+                            "slug": "20",
+                            "filename": "Kiều sở_S01E20_Tập 20",
+                            "link_embed": "https://vip.opstream90.com/share/fb52538ee970026501864b2272852dc4",
+                            "link_m3u8": "https://vip.opstream90.com/20260616/34903_fb52538e/index.m3u8"
+                        }
+                    ]
+                }
+            ]
+        },
+        "APP_DOMAIN_CDN_IMAGE": "https://img.ophim.live"
+    }
+}

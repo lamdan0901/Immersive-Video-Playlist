@@ -1,0 +1,337 @@
+{
+    "status": "success",
+    "movie": {
+        "id": "fe53517dae0e346a310ccb9d5eeccbe2",
+        "name": "Ki\u1ec1u S\u1edf",
+        "slug": "kieu-so",
+        "original_name": "Ashes to Crown",
+        "thumb_url": "https:\/\/phim.nguonc.com\/public\/images\/Post\/6\/kieu-so-1.jpg",
+        "poster_url": "https:\/\/phim.nguonc.com\/public\/images\/Post\/6\/kieu-so.jpg",
+        "created": "2026-06-02T07:32:50.000000Z",
+        "modified": "2026-06-16T04:38:18.000000Z",
+        "description": "S\u1edf Tri\u00eau, con g\u00e1i \u0111\u1ea1i t\u01b0\u1edbng qu\u00e2n, v\u00ec mu\u1ed1n thay \u0111\u1ed5i s\u1ed1 ph\u1eadn bi th\u1ea3m l\u00e0 qu\u00e2n c\u1edd cho Ti\u00eau Tu\u1ea7n \u0111o\u1ea1t quy\u1ec1n \u0111\u00e3 quy\u1ebft \u0111\u1ecbnh ch\u1ee7 \u0111\u1ed9ng t\u1ea5n c\u00f4ng. V\u1edbi s\u1ef1 h\u1ed7 tr\u1ee3 c\u1ee7a T\u1ea1 Y\u1ebfn Lai, n\u00e0ng v\u01b0\u1ee3t bao hi\u1ec3m nguy, h\u1ed9 t\u1ed1ng ho\u00e0ng tr\u01b0\u1edfng t\u00f4n v\u00e0o cung, \u0111\u1ea5u tr\u00ed tr\u01b0\u1edbc \u0111i\u1ec7n, ph\u00f2 t\u00e1 ho\u00e0ng tr\u01b0\u1edfng t\u00f4n k\u1ebf v\u1ecb, ch\u1eb7t \u0111\u1ee9t con \u0111\u01b0\u1eddng x\u01b0ng \u0111\u1ebf c\u1ee7a Ti\u00eau Tu\u1ea7n. T\u00e2n \u0111\u1ebf l\u00ean ng\u00f4i khi \u0110\u1ea1i S\u1edf th\u00f9 trong gi\u1eb7c ngo\u00e0i, S\u1edf Tri\u00eau c\u00f9ng T\u1ea1 Y\u1ebfn Lai v\u1eeba kh\u00e9o l\u00e9o \u0111\u1ed1i n\u1ed9i v\u1eeba c\u1ea7m qu\u00e2n d\u1eb9p lo\u1ea1n, thay \u0111\u1ed5i v\u1eadn m\u1ec7nh c\u1ee7a m\u00ecnh, mang l\u1ea1i th\u00e1i b\u00ecnh cho b\u00e1 t\u00e1nh.",
+        "total_episodes": 24,
+        "current_episode": "T\u1eadp 20",
+        "time": "45 Ph\u00fat\/T\u1eadp",
+        "quality": "HD",
+        "language": "Vietsub + Thuy\u1ebft Minh",
+        "director": "Yang Long",
+        "casts": "Tr\u1ea7n \u0110\u00f4 Linh, Chu D\u1ef1c Nhi\u00ean, Zhou Yi Ran, Chen Du Ling, Wu Shi Le, Gao Mao Tong",
+        "category": {
+            "1": {
+                "group": {
+                    "id": "c4ca4238a0b923820dcc509a6f75849b",
+                    "name": "\u0110\u1ecbnh d\u1ea1ng"
+                },
+                "list": [
+                    {
+                        "id": "eccbc87e4b5ce2fe28308fd9f2a7baf3",
+                        "name": "Phim b\u1ed9"
+                    },
+                    {
+                        "id": "0777d5c17d4066b82ab86dff8a46af6f",
+                        "name": "\u0110ang chi\u1ebfu"
+                    }
+                ]
+            },
+            "2": {
+                "group": {
+                    "id": "1679091c5a880faf6fb5e6087eb1b2dc",
+                    "name": "Th\u1ec3 lo\u1ea1i"
+                },
+                "list": [
+                    {
+                        "id": "c51ce410c124a10e0db5e4b97fc2af39",
+                        "name": "Ch\u00ednh K\u1ecbch"
+                    },
+                    {
+                        "id": "9bf31c7ff062936a96d3c8bd1f8f2ff3",
+                        "name": "Gi\u1ea3 T\u01b0\u1edfng"
+                    },
+                    {
+                        "id": "98f13708210194c475687be6106a3b84",
+                        "name": "L\u00e3ng M\u1ea1n"
+                    },
+                    {
+                        "id": "a8baa56554f96369ab93e4f3bb068c22",
+                        "name": "C\u1ed5 Trang"
+                    },
+                    {
+                        "id": "2a79ea27c279e471f4d180b08d62b00a",
+                        "name": "T\u00ecnh C\u1ea3m"
+                    }
+                ]
+            },
+            "3": {
+                "group": {
+                    "id": "8e296a067a37563370ded05f5a3bf3ec",
+                    "name": "N\u0103m"
+                },
+                "list": [
+                    {
+                        "id": "7e7757b1e12abcb736ab9a754ffb617a",
+                        "name": "2026"
+                    }
+                ]
+            },
+            "4": {
+                "group": {
+                    "id": "67c6a1e7ce56d3d6fa748ab6d9af3fd7",
+                    "name": "Qu\u1ed1c gia"
+                },
+                "list": [
+                    {
+                        "id": "c0c7c76d30bd3dcaefc96f40275bdc0a",
+                        "name": "Trung Qu\u1ed1c"
+                    }
+                ]
+            }
+        },
+        "episodes": [
+            {
+                "server_name": "Vietsub #1",
+                "items": [
+                    {
+                        "name": "1",
+                        "slug": "tap-1",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=2231bdb99ce8e4601c7c01fa25a6b8be",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/2231bdb99ce8e4601c7c01fa25a6b8be\/hls.m3u8"
+                    },
+                    {
+                        "name": "2",
+                        "slug": "tap-2",
+                        "embed": "https:\/\/embed12.streamc.xyz\/embed.php?hash=20bbe01f03c591ac9b03a5f388fc93bc",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/20bbe01f03c591ac9b03a5f388fc93bc\/hls.m3u8"
+                    },
+                    {
+                        "name": "3",
+                        "slug": "tap-3",
+                        "embed": "https:\/\/embed11.streamc.xyz\/embed.php?hash=e67e2c79de23ff70c60f70dcd333cfdd",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/e67e2c79de23ff70c60f70dcd333cfdd\/hls.m3u8"
+                    },
+                    {
+                        "name": "4",
+                        "slug": "tap-4",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=afde0db8f66d23fd1af39e8b00e7f632",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/afde0db8f66d23fd1af39e8b00e7f632\/hls.m3u8"
+                    },
+                    {
+                        "name": "5",
+                        "slug": "tap-5",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=2bbeafc251206c919963d95eb4f514a2",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/2bbeafc251206c919963d95eb4f514a2\/hls.m3u8"
+                    },
+                    {
+                        "name": "6",
+                        "slug": "tap-6",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=861a1ae3834a69cad216b5c9b7394abb",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/861a1ae3834a69cad216b5c9b7394abb\/hls.m3u8"
+                    },
+                    {
+                        "name": "7",
+                        "slug": "tap-7",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=595033afe664adbf9c8c133ac526fd50",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/595033afe664adbf9c8c133ac526fd50\/hls.m3u8"
+                    },
+                    {
+                        "name": "8",
+                        "slug": "tap-8",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=9bd44065ddb9b1e4be4a56e6a2fc28aa",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/9bd44065ddb9b1e4be4a56e6a2fc28aa\/hls.m3u8"
+                    },
+                    {
+                        "name": "9",
+                        "slug": "tap-9",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=3b6ec53724368e2157241aa7c488f389",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/3b6ec53724368e2157241aa7c488f389\/hls.m3u8"
+                    },
+                    {
+                        "name": "10",
+                        "slug": "tap-10",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=701f62fb5d149198235d73ea505a1cf6",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/701f62fb5d149198235d73ea505a1cf6\/hls.m3u8"
+                    },
+                    {
+                        "name": "11",
+                        "slug": "tap-11",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=9c538d049543530782b938bdbe3b9fde",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/9c538d049543530782b938bdbe3b9fde\/hls.m3u8"
+                    },
+                    {
+                        "name": "12",
+                        "slug": "tap-12",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=f3ff2597a054f8bb64a39eabea1adaaa",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/f3ff2597a054f8bb64a39eabea1adaaa\/hls.m3u8"
+                    },
+                    {
+                        "name": "13",
+                        "slug": "tap-13",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=7338f9a882a0faae9fced0fecd65e3ce",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/7338f9a882a0faae9fced0fecd65e3ce\/hls.m3u8"
+                    },
+                    {
+                        "name": "14",
+                        "slug": "tap-14",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=5c09c24c4fe8320f748014894e873ab1",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/5c09c24c4fe8320f748014894e873ab1\/hls.m3u8"
+                    },
+                    {
+                        "name": "15",
+                        "slug": "tap-15",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=1b547db06de238345b75407c0891bee3",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/1b547db06de238345b75407c0891bee3\/hls.m3u8"
+                    },
+                    {
+                        "name": "16",
+                        "slug": "tap-16",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=9a07fb75a5c15d64683d45a825b3ce5c",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/9a07fb75a5c15d64683d45a825b3ce5c\/hls.m3u8"
+                    },
+                    {
+                        "name": "17",
+                        "slug": "tap-17",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=84dc36f920f83934cdf2bf287f130db0",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/84dc36f920f83934cdf2bf287f130db0\/hls.m3u8"
+                    },
+                    {
+                        "name": "18",
+                        "slug": "tap-18",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=8a0da5f501d994a53f784a21c963a55b",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/8a0da5f501d994a53f784a21c963a55b\/hls.m3u8"
+                    },
+                    {
+                        "name": "19",
+                        "slug": "tap-19",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=b77d7ec49228e48f41dcbb456389549e",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/b77d7ec49228e48f41dcbb456389549e\/hls.m3u8"
+                    },
+                    {
+                        "name": "20",
+                        "slug": "tap-20",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=0c5567f7005f1875c04a043cf445a46c",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/0c5567f7005f1875c04a043cf445a46c\/hls.m3u8"
+                    }
+                ]
+            },
+            {
+                "server_name": "Thuy\u1ebft minh #1",
+                "items": [
+                    {
+                        "name": "1",
+                        "slug": "tap-1",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=c0e22f16c11dfeb0b3fea0ef1747a22d",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/c0e22f16c11dfeb0b3fea0ef1747a22d\/hls.m3u8"
+                    },
+                    {
+                        "name": "2",
+                        "slug": "tap-2",
+                        "embed": "https:\/\/embed12.streamc.xyz\/embed.php?hash=d6b62a24fb21454a2cc257ba13ad4668",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/d6b62a24fb21454a2cc257ba13ad4668\/hls.m3u8"
+                    },
+                    {
+                        "name": "3",
+                        "slug": "tap-3",
+                        "embed": "https:\/\/embed11.streamc.xyz\/embed.php?hash=50f0d9ba8d79c41adaf4cd7013f385c6",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/50f0d9ba8d79c41adaf4cd7013f385c6\/hls.m3u8"
+                    },
+                    {
+                        "name": "4",
+                        "slug": "tap-4",
+                        "embed": "https:\/\/embed13.streamc.xyz\/embed.php?hash=b82b7e2c4ae835e496a9853f6dd1dd64",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/b82b7e2c4ae835e496a9853f6dd1dd64\/hls.m3u8"
+                    },
+                    {
+                        "name": "5",
+                        "slug": "tap-5",
+                        "embed": "https:\/\/embed13.streamc.xyz\/embed.php?hash=bad2f6292631df9dff014d0689e1bea1",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/bad2f6292631df9dff014d0689e1bea1\/hls.m3u8"
+                    },
+                    {
+                        "name": "6",
+                        "slug": "tap-6",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=cf84b34c3e754458ca915c36281288c7",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/cf84b34c3e754458ca915c36281288c7\/hls.m3u8"
+                    },
+                    {
+                        "name": "7",
+                        "slug": "tap-7",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=972a6842cf2a13d37b6f983b23bbcb2e",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/972a6842cf2a13d37b6f983b23bbcb2e\/hls.m3u8"
+                    },
+                    {
+                        "name": "8",
+                        "slug": "tap-8",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=93af61c2bf98ca15ce8940f080ed4b2b",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/93af61c2bf98ca15ce8940f080ed4b2b\/hls.m3u8"
+                    },
+                    {
+                        "name": "9",
+                        "slug": "tap-9",
+                        "embed": "https:\/\/embed18.streamc.xyz\/embed.php?hash=8ec45af4ef9a29e7f3123f7eb56fed3f",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/8ec45af4ef9a29e7f3123f7eb56fed3f\/hls.m3u8"
+                    },
+                    {
+                        "name": "10",
+                        "slug": "tap-10",
+                        "embed": "https:\/\/embed13.streamc.xyz\/embed.php?hash=0faceb15c4477eeaf6dc0697e5f4e3d9",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/0faceb15c4477eeaf6dc0697e5f4e3d9\/hls.m3u8"
+                    },
+                    {
+                        "name": "11",
+                        "slug": "tap-11",
+                        "embed": "https:\/\/embed11.streamc.xyz\/embed.php?hash=55031a6cc3d6713b41840eeab35e4150",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/55031a6cc3d6713b41840eeab35e4150\/hls.m3u8"
+                    },
+                    {
+                        "name": "12",
+                        "slug": "tap-12",
+                        "embed": "https:\/\/embed15.streamc.xyz\/embed.php?hash=ee1f3b1c216601d9c5e9f99844054234",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/ee1f3b1c216601d9c5e9f99844054234\/hls.m3u8"
+                    },
+                    {
+                        "name": "13",
+                        "slug": "tap-13",
+                        "embed": "https:\/\/embed11.streamc.xyz\/embed.php?hash=883f6ebca2751fca258516c50bc57b73",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/883f6ebca2751fca258516c50bc57b73\/hls.m3u8"
+                    },
+                    {
+                        "name": "14",
+                        "slug": "tap-14",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=a6fa1f6138635bb5b44500b56dc84789",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/a6fa1f6138635bb5b44500b56dc84789\/hls.m3u8"
+                    },
+                    {
+                        "name": "15",
+                        "slug": "tap-15",
+                        "embed": "https:\/\/embed13.streamc.xyz\/embed.php?hash=c9d7b9de5aa8580b3fe80a1dcc9902dc",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/c9d7b9de5aa8580b3fe80a1dcc9902dc\/hls.m3u8"
+                    },
+                    {
+                        "name": "16",
+                        "slug": "tap-16",
+                        "embed": "https:\/\/embed13.streamc.xyz\/embed.php?hash=f10db875e697bb136dedf2aac6d5996d",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/f10db875e697bb136dedf2aac6d5996d\/hls.m3u8"
+                    },
+                    {
+                        "name": "17",
+                        "slug": "tap-17",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=d5a840620ec86d4dc83dc8c2b1b3d134",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/d5a840620ec86d4dc83dc8c2b1b3d134\/hls.m3u8"
+                    },
+                    {
+                        "name": "18",
+                        "slug": "tap-18",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=20d1343a46976eb7f89ccda6c8d22538",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/20d1343a46976eb7f89ccda6c8d22538\/hls.m3u8"
+                    },
+                    {
+                        "name": "19",
+                        "slug": "tap-19",
+                        "embed": "https:\/\/embed14.streamc.xyz\/embed.php?hash=d5691e9e56bd337f7e4fccaf319bc695",
+                        "m3u8": "https:\/\/sing.phimmoi.net\/d5691e9e56bd337f7e4fccaf319bc695\/hls.m3u8"
+                    }
+                ]
+            }
+        ]
+    }
+}

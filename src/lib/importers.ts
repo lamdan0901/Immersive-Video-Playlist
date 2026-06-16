@@ -393,6 +393,11 @@ export function normalizeImportedMovie(
   const allServers = Array.isArray(item.episodes)
     ? (item.episodes as RawServer[])
     : [];
+  const selectedServers = isNguonC
+    ? allServers.filter(
+        (server) => asString(server.server_name) === "Vietsub #1",
+      )
+    : allServers;
   const responseData = record.data as Record<string, unknown> | undefined;
   const seoSchema = asRecord(
     asRecord(asRecord(responseData?.seoOnPage)?.seoSchema),
@@ -410,6 +415,6 @@ export function normalizeImportedMovie(
     imageUrl,
     posterUrl,
     metadata: item,
-    sources: normalizeServers(allServers, sourceUrl),
+    sources: normalizeServers(selectedServers, sourceUrl),
   };
 }

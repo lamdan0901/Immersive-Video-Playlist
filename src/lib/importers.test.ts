@@ -68,7 +68,7 @@ describe("normalizeImportedMovie", () => {
     expect(movie.imageUrl).toContain("vuong-mien-hoan-hao.jpg");
   });
 
-  it("preserves all NguonC servers when multiple playable sources exist", () => {
+  it('keeps only NguonC "Vietsub #1" when multiple playable sources exist', () => {
     const multiServerPayload = {
       status: "success",
       movie: {
@@ -94,11 +94,9 @@ describe("normalizeImportedMovie", () => {
     };
 
     const movie = normalizeImportedMovie(multiServerPayload, "https://phim.nguonc.com/api/film/vu-lam-linh");
-    expect(movie.sources).toHaveLength(2);
+    expect(movie.sources).toHaveLength(1);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
     expect(movie.sources[0].episodes).toHaveLength(2);
-    expect(movie.sources[1].sourceTitle).toBe("Thuyết minh #1");
-    expect(movie.sources[1].episodes).toHaveLength(1);
   });
 
   it("drops episodes with no playable URLs", () => {

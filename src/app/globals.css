@@ -648,7 +648,6 @@ select {
   left: 20px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   z-index: 10;
   background: rgba(0, 0, 0, 0.3);
   color: #fff;
@@ -657,20 +656,41 @@ select {
   font-size: 15px;
   font-weight: 700;
   backdrop-filter: blur(4px);
+  transition: padding 0.2s ease;
+  cursor: pointer;
 }
 
 .counter-overlay-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  width: 0;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease, border-width 0.3s ease, margin-right 0.3s ease;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   color: inherit;
   cursor: pointer;
+  box-sizing: content-box;
+}
+
+.counter-overlay:hover .counter-overlay-btn {
+  width: 30px;
+  height: 30px;
+  padding: initial;
+  margin: 0;
+  opacity: 1;
   pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  margin-right: 10px;
 }
 
 .counter-overlay-btn svg,

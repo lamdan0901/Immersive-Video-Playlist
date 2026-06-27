@@ -301,12 +301,16 @@ export function PlaylistDetailClient({
       }}
       aria-label="Playlist detail"
     >
-      <div className="counter-overlay">
+      <div className="counter-overlay" onClick={() => router.push("/")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push("/"); } }}>
         <button
           type="button"
           className="counter-overlay-btn"
           aria-label="Back to home"
-          onClick={() => router.push("/")}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push("/");
+          }}
         >
           <House aria-hidden="true" size={16} strokeWidth={2.2} />
         </button>

@@ -17,6 +17,7 @@ export function useCachedImage(imageUrl: string | null): string | null {
     let cancelled = false;
 
     async function load() {
+      if (!imageUrl) return;
       try {
         if (typeof caches === "undefined") {
           throw new Error("Cache API not available");

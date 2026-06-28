@@ -64,9 +64,6 @@ export function PlayerStage({
     const onLoadedMetadata = () => {
       const startSeconds = Math.max(resumeSeconds, skipStartSeconds);
       if (startSeconds > 0) video.currentTime = startSeconds;
-      if (initialVolume >= 0 && initialVolume <= 1) {
-        video.volume = initialVolume;
-      }
       video.play().catch(() => undefined);
     };
 
@@ -144,7 +141,17 @@ export function PlayerStage({
     };
     // Resume seconds should reseed only when the playback target changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [episodeKey, initialVolume, onStopWatching, playlistId, sourceId, url, useNative]);
+  }, [episodeKey, onStopWatching, playlistId, sourceId, url, useNative]);
+
+  // Set initial volume once when the video element mounts, independently of the
+  // main effect so that volume changes never re-trigger HLS initialisation.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (initialVolume >= 0 && initialVolume <= 1) {
+      video.volume = initialVolume;
+    }
+  }, [initialVolume]);
 
   if (!episode || !url) {
     return <div className="blank-state">No episode loaded.</div>;

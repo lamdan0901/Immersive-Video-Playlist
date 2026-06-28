@@ -336,13 +336,19 @@ async function performSourceRefreshFromImportedJson(
 
   const now = new Date();
 
+  const existingRows = await db
+    .select({ preferredLinkType: sources.preferredLinkType })
+    .from(sources)
+    .where(eq(sources.id, sourceRow.id));
+  const preservedLinkType = existingRows[0]?.preferredLinkType ?? importedSource.preferredLinkType;
+
   await db.transaction(async (tx) => {
     await tx
       .update(sources)
       .set({
         sourceTitle: sourceTitleFromUrl(sourceUrl),
         sourceUrl,
-        preferredLinkType: importedSource.preferredLinkType,
+        preferredLinkType: preservedLinkType,
         importError: null,
         lastRefreshedAt: now,
         metadata: importedSource as unknown as Record<string, unknown>,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { episodes, playlists, sources } from "@/db/schema";
-import { savePlaybackProgress } from "./playback";
+import { savePlaybackProgress, savePlaylistVolume } from "./playback";
 
 const {
   logMutationMock,
@@ -8,6 +8,7 @@ const {
   revalidateTagMock,
   returningResults,
   transactionMock,
+  updateMock,
   updateSteps,
 } = vi.hoisted(() => {
   const steps: Array<{
@@ -50,12 +51,29 @@ const {
     },
   );
 
+  const update = vi.fn((table) => ({
+    set: (values: Record<string, unknown>) => ({
+      where: (whereArg: unknown) => {
+        steps.push({ table, values, whereArg });
+        return {
+          returning: async () => {
+            if (table === episodes) return results.episodes;
+            if (table === sources) return results.sources;
+            if (table === playlists) return results.playlists;
+            return [];
+          },
+        };
+      },
+    }),
+  }));
+
   return {
     logMutationMock: vi.fn(),
     revalidatePathMock: vi.fn(),
     revalidateTagMock: vi.fn(),
     returningResults: results,
     transactionMock: transaction,
+    updateMock: update,
     updateSteps: steps,
   };
 });
@@ -68,6 +86,7 @@ vi.mock("next/cache", () => ({
 vi.mock("@/db/client", () => ({
   db: {
     transaction: transactionMock,
+    update: updateMock,
   },
 }));
 
@@ -138,3 +157,43 @@ describe("savePlaybackProgress", () => {
     expect(revalidateTagMock).not.toHaveBeenCalled();
   });
 });
+
+describe("savePlaylistVolume", () => {
+  beforeEach(() => {
+    updateSteps.length = 0;
+    transactionMock.mockClear();
+    updateMock.mockClear();
+    logMutationMock.mockReset();
+    revalidatePathMock.mockReset();
+    revalidateTagMock.mockReset();
+    returningResults.playlists = [{ id: "playlist-1" }];
+  });
+
+  it("updates the volume of the playlist and logs mutation", async () => {
+    await savePlaylistVolume({
+      playlistId: "playlist-1",
+      volume: 0.8,
+    });
+
+    expect(updateSteps).toHaveLength(1);
+    const playlistUpdate = updateSteps.find((step) => step.table === playlists);
+    expect(playlistUpdate?.values.volume).toBe(0.8);
+    expect(logMutationMock).toHaveBeenCalledWith(
+      "playback.update",
+      "Saved playlist volume to 80%",
+      "playlist-1",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+  });
+
+  it("handles extreme volume values by clamping them", async () => {
+    await savePlaylistVolume({
+      playlistId: "playlist-1",
+      volume: 1.5,
+    });
+
+    const playlistUpdate = updateSteps.find((step) => step.table === playlists);
+    expect(playlistUpdate?.values.volume).toBe(1.0);
+  });
+});
+

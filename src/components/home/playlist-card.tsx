@@ -11,6 +11,7 @@ import {
 } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
 import { fetchImportPayloadInBrowser } from "@/lib/importers";
+import { useCachedImage } from "@/lib/use-cached-image";
 
 export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const router = useRouter();
@@ -58,6 +59,10 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
 
     return () => window.clearTimeout(timeoutId);
   }, [toast]);
+
+  const backgroundImage =
+    playlist.banner.type === "image" ? playlist.banner.value : null;
+  const cachedImageUrl = useCachedImage(backgroundImage);
 
   async function handleDeleteClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -205,7 +210,9 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           className={`playlist-card-banner playlist-card-banner-${playlist.banner.type}`}
           style={
             playlist.banner.type === "image"
-              ? { backgroundImage: `url(${playlist.banner.value})` }
+              ? {
+                  backgroundImage: `url(${cachedImageUrl ?? playlist.banner.value})`,
+                }
               : { backgroundImage: playlist.banner.value }
           }
         >

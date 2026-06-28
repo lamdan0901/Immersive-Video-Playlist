@@ -40,6 +40,7 @@ type PlaylistDetail = {
   id: string;
   title: string;
   skipStartSeconds: number;
+  volume: number;
   version: number;
   sources: Source[];
 };
@@ -327,6 +328,8 @@ export function PlaylistDetailClient({
         preferredLinkType={currentSource?.preferredLinkType ?? "embed"}
         skipStartSeconds={playlist.skipStartSeconds}
         onStopWatching={onStopWatching}
+        playlistId={playlist.id}
+        initialVolume={playlist.volume}
       />
 
       <div className="action-hover-zone">

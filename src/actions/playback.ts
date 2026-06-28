@@ -79,3 +79,27 @@ export async function savePlaybackProgress(input: {
   );
   revalidateTag("playlists");
 }
+
+export async function savePlaylistVolume(input: {
+  playlistId: string;
+  volume: number;
+}) {
+  const volume = Number.isFinite(input.volume)
+    ? Math.max(0, Math.min(1, input.volume))
+    : 1.0;
+
+  await db
+    .update(playlists)
+    .set({
+      volume: volume,
+      updatedAt: new Date(),
+    })
+    .where(eq(playlists.id, input.playlistId));
+
+  await logMutation(
+    "playback.update",
+    `Saved playlist volume to ${Math.round(volume * 100)}%`,
+    input.playlistId,
+  );
+}
+

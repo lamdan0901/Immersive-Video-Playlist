@@ -45,6 +45,7 @@ select {
   height: 100vh;
   overflow: hidden;
   background: #000;
+  outline: none;
 }
 
 .fullscreen-wrapper iframe,
@@ -55,6 +56,12 @@ select {
   height: 100%;
   border: 0;
   background: #000;
+  outline: none;
+}
+
+.fullscreen-wrapper iframe:focus,
+.fullscreen-wrapper video:focus {
+  outline: none;
 }
 
 .home-page {

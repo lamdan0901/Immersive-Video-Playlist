@@ -812,4 +812,86 @@ describe("PlaylistDetailClient", () => {
 
     expect(savePlaybackProgressMock).toHaveBeenCalledTimes(2);
   });
+
+  it("skips forward 10 seconds on L keypress and backward 10 seconds on J keypress", () => {
+    const { container } = render(
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          sources: playlist.sources.map((source) => ({
+            ...source,
+            preferredLinkType: "m3u8" as const,
+          })),
+        }}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    if (!video) return;
+
+    let currentTime = 50;
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => currentTime,
+      set: (val) => {
+        currentTime = val;
+      },
+    });
+
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 100,
+    });
+
+    // Fire keydown 'L' on window
+    fireEvent.keyDown(window, { code: "KeyL", key: "L" });
+    expect(currentTime).toBe(60);
+
+    // Fire keydown 'J' on window
+    fireEvent.keyDown(window, { code: "KeyJ", key: "J" });
+    expect(currentTime).toBe(50);
+  });
+
+  it("does not skip when L or J is pressed inside an input field", () => {
+    const { container } = render(
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          sources: playlist.sources.map((source) => ({
+            ...source,
+            preferredLinkType: "m3u8" as const,
+          })),
+        }}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    if (!video) return;
+
+    let currentTime = 50;
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => currentTime,
+      set: (val) => {
+        currentTime = val;
+      },
+    });
+
+    // Create a mock input and dispatch keydown on it
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
+
+    fireEvent.keyDown(input, { code: "KeyL", key: "L", bubbles: true });
+    expect(currentTime).toBe(50); // should not change
+
+    fireEvent.keyDown(input, { code: "KeyJ", key: "J", bubbles: true });
+    expect(currentTime).toBe(50); // should not change
+
+    document.body.removeChild(input);
+  });
 });

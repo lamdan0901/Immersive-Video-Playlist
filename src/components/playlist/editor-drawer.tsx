@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { createSourceFromUrl } from "@/actions/import";
+import {
+  createSourceFromImportedJson,
+  createSourceFromUrl,
+} from "@/actions/import";
+import { fetchImportPayloadInBrowser, isNguoncUrl } from "@/lib/importers";
 import {
   softDeleteSource,
   updatePlaylistTitle,
@@ -137,6 +141,10 @@ export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps)
     router.refresh();
   }
 
+  function isUpstreamImportBlock(errorMessage: string) {
+    return /^Import request failed with (403|429)$/.test(errorMessage.trim());
+  }
+
   async function handleCreate(adminSecret: string) {
     const trimmedUrl = sourceUrl.trim();
     if (!trimmedUrl) {
@@ -151,12 +159,27 @@ export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps)
       return;
     }
 
-    const result = await createSourceFromUrl({
+    let result = await createSourceFromUrl({
       adminSecret,
       playlistId: playlist.id,
       playlistVersion: playlist.version,
       sourceUrl: trimmedUrl,
     });
+
+    if (
+      !result.ok
+      && isNguoncUrl(trimmedUrl)
+      && isUpstreamImportBlock(result.error)
+    ) {
+      const payload = await fetchImportPayloadInBrowser(trimmedUrl);
+      result = await createSourceFromImportedJson({
+        adminSecret,
+        playlistId: playlist.id,
+        playlistVersion: playlist.version,
+        sourceUrl: payload.sourceUrl,
+        importedJson: payload.importedJson,
+      });
+    }
 
     if (!result.ok) {
       console.error("[createSourceFromUrl] failed:", result.error);

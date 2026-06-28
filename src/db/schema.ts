@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -42,6 +43,7 @@ export const playlists = pgTable("playlists", {
   lastPlayedAt: timestamp("last_played_at", { withTimezone: true }),
   lastPlayedSourceId: uuid("last_played_source_id"),
   lastPlayedEpisodeKey: text("last_played_episode_key"),
+  volume: doublePrecision("volume").notNull().default(1.0),
   metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
   version: integer("version").notNull().default(1),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

@@ -3,6 +3,7 @@
 import { savePlaylistVolume } from "@/actions/playback";
 import Hls from "hls.js";
 import { useEffect, useRef } from "react";
+import { M3u8Player } from "./m3u8-player";
 
 type Episode = {
   episodeKey: string;
@@ -111,6 +112,25 @@ export function PlayerStage({
       } else if (e.code === "KeyJ" || e.key === "j" || e.key === "J") {
         e.preventDefault();
         video.currentTime = Math.max(0, video.currentTime - 10);
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        video.currentTime = Math.max(0, video.currentTime - 30);
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        const duration = video.duration;
+        const targetTime = video.currentTime + 30;
+        video.currentTime =
+          typeof duration === "number" && !isNaN(duration) && duration > 0
+            ? Math.min(duration, targetTime)
+            : targetTime;
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        const nextVolume = Math.min(1, video.volume + 0.2);
+        video.volume = nextVolume;
+        if (nextVolume > 0) video.muted = false;
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        video.volume = Math.max(0, video.volume - 0.2);
       }
     };
 
@@ -158,7 +178,7 @@ export function PlayerStage({
   }
 
   if (useNative) {
-    return <video ref={videoRef} controls autoPlay suppressHydrationWarning />;
+    return <M3u8Player videoRef={videoRef} />;
   }
 
   return <iframe src={url} allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />;

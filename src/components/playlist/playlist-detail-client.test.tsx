@@ -894,4 +894,78 @@ describe("PlaylistDetailClient", () => {
 
     document.body.removeChild(input);
   });
+
+  it("skips forward 30 seconds on right arrow and backward 30 seconds on left arrow", () => {
+    const { container } = render(
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          sources: playlist.sources.map((source) => ({
+            ...source,
+            preferredLinkType: "m3u8" as const,
+          })),
+        }}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    if (!video) return;
+
+    let currentTime = 50;
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => currentTime,
+      set: (val) => {
+        currentTime = val;
+      },
+    });
+    Object.defineProperty(video, "duration", {
+      configurable: true,
+      value: 100,
+    });
+
+    fireEvent.keyDown(window, { code: "ArrowRight", key: "ArrowRight" });
+    expect(currentTime).toBe(80);
+
+    fireEvent.keyDown(window, { code: "ArrowLeft", key: "ArrowLeft" });
+    expect(currentTime).toBe(50);
+  });
+
+  it("adjusts volume by 20 percent on up and down arrow keys", () => {
+    const { container } = render(
+      <PlaylistDetailClient
+        playlist={{
+          ...playlist,
+          sources: playlist.sources.map((source) => ({
+            ...source,
+            preferredLinkType: "m3u8" as const,
+          })),
+        }}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
+      />,
+    );
+
+    const video = container.querySelector("video");
+    expect(video).not.toBeNull();
+    if (!video) return;
+
+    Object.defineProperty(video, "volume", {
+      configurable: true,
+      value: 0.5,
+      writable: true,
+    });
+    Object.defineProperty(video, "muted", {
+      configurable: true,
+      value: false,
+      writable: true,
+    });
+
+    fireEvent.keyDown(window, { code: "ArrowUp", key: "ArrowUp" });
+    expect(video.volume).toBeCloseTo(0.7);
+
+    fireEvent.keyDown(window, { code: "ArrowDown", key: "ArrowDown" });
+    expect(video.volume).toBeCloseTo(0.5);
+  });
 });

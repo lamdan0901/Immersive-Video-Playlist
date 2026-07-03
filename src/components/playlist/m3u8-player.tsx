@@ -277,21 +277,23 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
           onPointerLeave={onProgressPointerLeave}
           onPointerDown={onProgressPointerDown}
         >
-          {hoveredTime !== null ? (
-            <span
-              className="m3u8-player-progress-tooltip"
-              style={
-                {
-                  "--m3u8-player-hover-ratio": hoveredRatio,
-                } as CSSProperties
-              }
-            >
-              {formatPlaybackTime(hoveredTime)}
-            </span>
-          ) : null}
-          <div className="m3u8-player-progress-buffer" style={{ width: `${bufferedRatio * 100}%` }} />
-          <div className="m3u8-player-progress-played" style={{ width: `${progressRatio * 100}%` }}>
-            <span className="m3u8-player-progress-thumb" />
+          <div className="m3u8-player-progress-track">
+            {hoveredTime !== null ? (
+              <span
+                className="m3u8-player-progress-tooltip"
+                style={
+                  {
+                    "--m3u8-player-hover-ratio": hoveredRatio,
+                  } as CSSProperties
+                }
+              >
+                {formatPlaybackTime(hoveredTime)}
+              </span>
+            ) : null}
+            <div className="m3u8-player-progress-buffer" style={{ width: `${bufferedRatio * 100}%` }} />
+            <div className="m3u8-player-progress-played" style={{ width: `${progressRatio * 100}%` }}>
+              <span className="m3u8-player-progress-thumb" />
+            </div>
           </div>
         </div>
 

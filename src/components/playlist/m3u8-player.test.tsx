@@ -87,6 +87,22 @@ describe("M3u8Player", () => {
     expect(screen.getByText("0:30")).toBeInTheDocument();
   });
 
+  it("keeps the slider hit area outside the visible seek track", () => {
+    const { container } = renderPlayer();
+
+    const progress = container.querySelector(".m3u8-player-progress");
+    const track = container.querySelector(".m3u8-player-progress-track");
+    const buffer = container.querySelector(".m3u8-player-progress-buffer");
+    const played = container.querySelector(".m3u8-player-progress-played");
+    const thumb = container.querySelector(".m3u8-player-progress-thumb");
+
+    expect(progress).toHaveAttribute("role", "slider");
+    expect(progress).toContainElement(track);
+    expect(track).toContainElement(buffer);
+    expect(track).toContainElement(played);
+    expect(played).toContainElement(thumb);
+  });
+
   it("keeps the hover tooltip hidden when the duration is invalid", () => {
     const { container, video, progress } = renderPlayer();
 

@@ -2,10 +2,20 @@
 
 import { Maximize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 import { formatPlaybackTime } from "./format-playback-time";
 
 const CONTROLS_HIDE_DELAY_MS = 2500;
+
+function getClampedProgressRatio(bar: HTMLDivElement, clientX: number) {
+  const rect = bar.getBoundingClientRect();
+
+  if (rect.width <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+}
 
 type M3u8PlayerProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -24,6 +34,7 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [bufferedRatio, setBufferedRatio] = useState(0);
+  const [hoveredRatio, setHoveredRatio] = useState<number | null>(null);
 
   const clearHideTimer = useCallback(() => {
     if (hideControlsTimerRef.current) {
@@ -154,6 +165,30 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
     [videoRef],
   );
 
+  const updateHoveredRatio = useCallback((bar: HTMLDivElement, clientX: number) => {
+    setHoveredRatio(getClampedProgressRatio(bar, clientX));
+  }, []);
+
+  const clearHoveredRatio = useCallback(() => {
+    if (!isScrubbingRef.current) {
+      setHoveredRatio(null);
+    }
+  }, []);
+
+  const hasDuration = duration > 0 && Number.isFinite(duration);
+
+  const onProgressPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!hasDuration) {
+      return;
+    }
+
+    updateHoveredRatio(event.currentTarget, event.clientX);
+  };
+
+  const onProgressPointerLeave = () => {
+    clearHoveredRatio();
+  };
+
   const onProgressPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     const bar = event.currentTarget;
@@ -161,9 +196,9 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
     bar.setPointerCapture(event.pointerId);
 
     const updateFromClientX = (clientX: number) => {
-      const rect = bar.getBoundingClientRect();
-      const ratio = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
-      seekToRatio(Math.max(0, Math.min(1, ratio)));
+      const ratio = getClampedProgressRatio(bar, clientX);
+      setHoveredRatio(ratio);
+      seekToRatio(ratio);
     };
 
     updateFromClientX(event.clientX);
@@ -173,6 +208,7 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
     };
     const onPointerUp = () => {
       isScrubbingRef.current = false;
+      setHoveredRatio(null);
       bar.releasePointerCapture(event.pointerId);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
@@ -208,8 +244,8 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
     await container.requestFullscreen().catch(() => undefined);
   };
 
-  const progressRatio =
-    duration > 0 && Number.isFinite(duration) ? currentTime / duration : 0;
+  const progressRatio = hasDuration ? currentTime / duration : 0;
+  const hoveredTime = hoveredRatio !== null && hasDuration ? hoveredRatio * duration : null;
 
   return (
     <div
@@ -237,8 +273,22 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
           aria-valuemin={0}
           aria-valuemax={duration}
           aria-valuenow={currentTime}
+          onPointerMove={onProgressPointerMove}
+          onPointerLeave={onProgressPointerLeave}
           onPointerDown={onProgressPointerDown}
         >
+          {hoveredTime !== null ? (
+            <span
+              className="m3u8-player-progress-tooltip"
+              style={
+                {
+                  "--m3u8-player-hover-ratio": hoveredRatio,
+                } as CSSProperties
+              }
+            >
+              {formatPlaybackTime(hoveredTime)}
+            </span>
+          ) : null}
           <div className="m3u8-player-progress-buffer" style={{ width: `${bufferedRatio * 100}%` }} />
           <div className="m3u8-player-progress-played" style={{ width: `${progressRatio * 100}%` }}>
             <span className="m3u8-player-progress-thumb" />

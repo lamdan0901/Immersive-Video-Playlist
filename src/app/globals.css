@@ -132,6 +132,31 @@ select {
   height: 7px;
 }
 
+.m3u8-player-progress-tooltip {
+  --m3u8-player-tooltip-half-width: 28px;
+
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: clamp(
+    var(--m3u8-player-tooltip-half-width),
+    calc(var(--m3u8-player-hover-ratio) * 100%),
+    calc(100% - var(--m3u8-player-tooltip-half-width))
+  );
+  z-index: 1;
+  min-width: 56px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(15, 15, 15, 0.92);
+  color: #fff;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .m3u8-player-progress-buffer,
 .m3u8-player-progress-played {
   position: absolute;

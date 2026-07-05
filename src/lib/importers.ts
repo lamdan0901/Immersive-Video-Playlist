@@ -321,11 +321,32 @@ export function makeEpisodeKey(
   return `${sourceKey}:${normalizeNumber(name)}`;
 }
 
+function ensureUniqueEpisodeKeys(
+  episodes: ImportedEpisode[],
+): ImportedEpisode[] {
+  const seen = new Set<string>();
+  return episodes.map((episode, index) => {
+    if (!seen.has(episode.episodeKey)) {
+      seen.add(episode.episodeKey);
+      return episode;
+    }
+
+    let uniqueKey = `${episode.episodeKey}:${index}`;
+    let suffix = index;
+    while (seen.has(uniqueKey)) {
+      suffix += 1;
+      uniqueKey = `${episode.episodeKey}:${suffix}`;
+    }
+    seen.add(uniqueKey);
+    return { ...episode, episodeKey: uniqueKey };
+  });
+}
+
 function normalizeEpisodes(
   rows: RawEpisode[],
   sourceKey: string,
 ): ImportedEpisode[] {
-  return rows
+  const episodes = rows
     .map((episode, index) => {
       const title = asString(episode.name) ?? `${index + 1}`;
       return {
@@ -338,11 +359,14 @@ function normalizeEpisodes(
       };
     })
     .filter((episode) => episode.embedUrl != null || episode.m3u8Url != null);
+
+  return ensureUniqueEpisodeKeys(episodes);
 }
 
 function normalizeServers(
   servers: RawServer[],
   sourceUrl: string,
+  preferredLinkType: LinkType,
 ): ImportedSource[] {
   return servers
     .map((server, index) => {
@@ -357,7 +381,6 @@ function normalizeServers(
         : Array.isArray(server.items)
           ? server.items
           : [];
-      const preferredLinkType: LinkType = "embed";
       const episodes = normalizeEpisodes(rows, sourceKey);
 
       return {
@@ -415,6 +438,10 @@ export function normalizeImportedMovie(
     imageUrl,
     posterUrl,
     metadata: item,
-    sources: normalizeServers(selectedServers, sourceUrl),
+    sources: normalizeServers(
+      selectedServers,
+      sourceUrl,
+      isOPhim ? "m3u8" : "embed",
+    ),
   };
 }

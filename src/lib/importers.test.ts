@@ -43,7 +43,7 @@ describe("normalizeImportedMovie", () => {
     expect(movie.title).toBe("Giai Ngẫu Thiên Thành");
     expect(movie.sources.length).toBeGreaterThanOrEqual(1);
     expect(movie.sources[0].sourceTitle).toBe("Vietsub #1");
-    expect(movie.sources[0].preferredLinkType).toBe("embed");
+    expect(movie.sources[0].preferredLinkType).toBe("m3u8");
     expect(movie.sources[0].episodes[0]).toMatchObject({
       episodeKey: "1",
       title: "1",
@@ -121,6 +121,35 @@ describe("normalizeImportedMovie", () => {
     const movie = normalizeImportedMovie(payload, "https://phim.nguonc.com/api/film/gia-nghiep");
     expect(movie.sources[0].episodes).toHaveLength(1);
     expect(movie.sources[0].episodes[0].episodeKey).toBe("tap-1");
+  });
+
+  it("disambiguates duplicate episode keys within a source", () => {
+    const payload = {
+      data: {
+        item: {
+          name: "Cho Hoang Va Xuong",
+          slug: "cho-hoang-va-xuong",
+          thumb_url: "cho-hoang-va-xuong-thumb.jpg",
+          episodes: [
+            {
+              server_name: "Vietsub #1",
+              server_data: [
+                { name: "4", slug: "4", link_m3u8: "https://m3u8.test/36196/index.m3u8" },
+                { name: "4", slug: "4", link_m3u8: "https://m3u8.test/36193/index.m3u8" },
+              ]
+            }
+          ]
+        },
+        APP_DOMAIN_CDN_IMAGE: "https://img.ophim.live"
+      }
+    };
+
+    const movie = normalizeImportedMovie(payload, "https://ophim1.com/v1/api/phim/cho-hoang-va-xuong");
+    const keys = movie.sources[0].episodes.map((episode) => episode.episodeKey);
+    expect(keys).toHaveLength(2);
+    expect(new Set(keys).size).toBe(2);
+    expect(keys[0]).toBe("4");
+    expect(movie.sources[0].episodes[1].m3u8Url).toBe("https://m3u8.test/36193/index.m3u8");
   });
 
   it("preserves all OPhim servers when multiple playable sources exist", () => {

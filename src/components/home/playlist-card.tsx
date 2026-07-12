@@ -10,6 +10,7 @@ import {
   togglePinPlaylist,
 } from "@/actions/playlists";
 import type { PlaylistSummary } from "@/db/queries/home";
+import { showAppToast } from "@/lib/app-toast";
 import { fetchImportPayloadInBrowser } from "@/lib/importers";
 import { useCachedImage } from "@/lib/use-cached-image";
 
@@ -21,7 +22,6 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const [isPinning, setIsPinning] = useState(false);
   const [isRefreshingSources, setIsRefreshingSources] = useState(false);
   const [isTogglingRefresh, setIsTogglingRefresh] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -47,18 +47,6 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (!toast) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setToast(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [toast]);
 
   const backgroundImage =
     playlist.banner.type === "image" ? playlist.banner.value : null;
@@ -97,13 +85,13 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
 
     const adminSecret = localStorage.getItem("adminSecret");
     if (!adminSecret) {
-      setToast("Admin unlock required");
+      showAppToast("Admin unlock required");
       setMenuOpen(false);
       return;
     }
 
     setIsRefreshingSources(true);
-    setToast(null);
+    showAppToast("Refreshing sources...");
 
     try {
       const refreshes = [];
@@ -124,12 +112,14 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
 
       if (!result.ok) {
         console.error("[PlaylistCard] refresh failed:", result.error);
+        showAppToast(result.error);
+      } else {
+        showAppToast(result.data.message);
+        router.refresh();
       }
-      setToast(result.ok ? result.data.message : result.error);
-      router.refresh();
     } catch (error) {
       console.error("[PlaylistCard] refresh failed:", error);
-      setToast(
+      showAppToast(
         error instanceof Error && error.message.trim()
           ? error.message
           : "Refresh failed",
@@ -347,11 +337,6 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
-        </div>
-      ) : null}
-      {toast ? (
-        <div className="playlist-card-toast" role="status">
-          {toast}
         </div>
       ) : null}
     </div>

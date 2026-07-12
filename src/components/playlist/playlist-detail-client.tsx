@@ -7,11 +7,11 @@ import type React from "react";
 import { refreshSourceFromImportedJson } from "@/actions/import";
 import { savePlaybackProgress } from "@/actions/playback";
 import { softDeleteSource } from "@/actions/playlists";
+import { showAppToast } from "@/lib/app-toast";
 import { performClientRefresh } from "@/lib/client-refresh";
 import { EditorDrawer } from "./editor-drawer";
 import { EpisodeList } from "./episode-list";
 import { PlayerStage } from "./player-stage";
-import { Toast } from "./toast";
 
 type Episode = {
   id: string;
@@ -63,21 +63,22 @@ export function PlaylistDetailClient({
     initialPlayback.episodeIndex,
   );
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(new Set());
 
   const visibleSources = playlist.sources.filter((s) => !deletedSourceIds.has(s.id));
 
   const handleClientRefresh = useCallback(
-    async (sourceId: string, sourceUrl: string): Promise<string> => {
+    async (sourceId: string, sourceUrl: string): Promise<void> => {
       const source = playlist.sources.find((s) => s.id === sourceId);
       if (!source) {
-        return "Source not found.";
+        showAppToast("Source not found.");
+        return;
       }
 
       const adminSecret = window.localStorage.getItem("adminSecret");
       if (!adminSecret) {
-        return "Admin unlock required";
+        showAppToast("Admin unlock required");
+        return;
       }
 
       try {
@@ -101,18 +102,19 @@ export function PlaylistDetailClient({
 
         if (!persisted.ok) {
           console.error("[PlaylistDetailClient] refresh failed:", persisted.error);
-          return persisted.error;
+          showAppToast(persisted.error);
+          return;
         }
 
+        showAppToast(persisted.data.message);
         router.refresh();
-        return persisted.data.message;
       } catch (error) {
         console.error("[PlaylistDetailClient] refresh failed:", error);
         const message =
           error instanceof Error && error.message.trim()
             ? error.message
             : "Refresh failed";
-        return message;
+        showAppToast(message);
       }
     },
     [playlist.id, playlist.sources, router],
@@ -125,8 +127,7 @@ export function PlaylistDetailClient({
 
       const adminSecret = window.localStorage.getItem("adminSecret");
       if (!adminSecret) {
-        setToast("Admin unlock required");
-        window.setTimeout(() => setToast(null), 2500);
+        showAppToast("Admin unlock required");
         return;
       }
 
@@ -158,8 +159,7 @@ export function PlaylistDetailClient({
           next.delete(sourceId);
           return next;
         });
-        setToast(result.error);
-        window.setTimeout(() => setToast(null), 2500);
+        showAppToast(result.error);
       } else {
         router.refresh();
       }
@@ -242,8 +242,7 @@ export function PlaylistDetailClient({
     if (!nextSource) return;
 
     if (!nextSource.episodes[currentEpisodeIndex]) {
-      setToast("Episode does not exist in that source");
-      window.setTimeout(() => setToast(null), 2500);
+      showAppToast("Episode does not exist in that source");
       return;
     }
 
@@ -469,8 +468,6 @@ export function PlaylistDetailClient({
           </div>
         </div>
       ) : null}
-
-      <Toast message={toast} />
     </div>
   );
 }

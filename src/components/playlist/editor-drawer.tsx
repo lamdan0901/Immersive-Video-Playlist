@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import {
   createSourceFromImportedJson,
   createSourceFromUrl,
 } from "@/actions/import";
+import { showAppToast } from "@/lib/app-toast";
 import { fetchImportPayloadInBrowser, isNguoncUrl } from "@/lib/importers";
 import {
   softDeleteSource,
@@ -28,13 +29,24 @@ type EditorDrawerProps = {
     preferredLinkType: LinkType;
     version: number;
   } | null;
-  onRefresh?: (sourceId: string, sourceUrl: string) => Promise<string>;
+  onRefresh?: (sourceId: string, sourceUrl: string) => Promise<void>;
 };
 
-export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps) {
+function asErrorMessage(error: unknown) {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : "Request failed";
+}
+
+export function EditorDrawer({
+  playlist,
+  source,
+  onRefresh,
+}: EditorDrawerProps) {
   const router = useRouter();
   const initialAdvancedJson = JSON.stringify({ playlist, source }, null, 2);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
+  const submitLockRef = useRef(false);
   const [playlistTitle, setPlaylistTitle] = useState(playlist.title);
   const [skipStartMinutes, setSkipStartMinutes] = useState(
     String(Math.floor(playlist.skipStartSeconds / 60)),
@@ -57,20 +69,34 @@ export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps)
     setSkipStartSeconds(String(normalizedSeconds % 60).padStart(2, "0"));
   }
 
-  function runWithAdminSecret(action: (adminSecret: string) => Promise<void>) {
-    const adminSecret = window.localStorage.getItem("adminSecret");
-    if (!adminSecret) {
-      setStatus("Admin unlock required");
+  async function runWithAdminSecret(
+    action: (adminSecret: string) => Promise<void>,
+  ) {
+    if (submitLockRef.current) {
       return;
     }
 
-    startTransition(() => {
-      void action(adminSecret);
-    });
+    const adminSecret = window.localStorage.getItem("adminSecret");
+    if (!adminSecret) {
+      showAppToast("Admin unlock required");
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsPending(true);
+    try {
+      await action(adminSecret);
+    } catch (error) {
+      console.error("[EditorDrawer] action failed:", error);
+      showAppToast(asErrorMessage(error));
+    } finally {
+      submitLockRef.current = false;
+      setIsPending(false);
+    }
   }
 
   async function handleSave(adminSecret: string) {
-    setStatus(null);
+    setStatus("Saving...");
 
     const parsedSkipStartMinutes = Number(skipStartMinutes);
     const parsedSkipStartSeconds = Number(skipStartSeconds);
@@ -148,62 +174,79 @@ export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps)
   async function handleCreate(adminSecret: string) {
     const trimmedUrl = sourceUrl.trim();
     if (!trimmedUrl) {
-      setStatus("Source URL is required.");
+      showAppToast("Source URL is required.");
       return;
     }
 
     try {
       new URL(trimmedUrl);
     } catch {
-      setStatus("Source URL is not a valid URL.");
+      showAppToast("Source URL is not a valid URL.");
       return;
     }
 
-    let result = await createSourceFromUrl({
-      adminSecret,
-      playlistId: playlist.id,
-      playlistVersion: playlist.version,
-      sourceUrl: trimmedUrl,
-    });
+    setStatus(null);
+    showAppToast("Creating source...");
 
-    if (
-      !result.ok
-      && isNguoncUrl(trimmedUrl)
-      && isUpstreamImportBlock(result.error)
-    ) {
-      const payload = await fetchImportPayloadInBrowser(trimmedUrl);
-      result = await createSourceFromImportedJson({
+    try {
+      let result = await createSourceFromUrl({
         adminSecret,
         playlistId: playlist.id,
         playlistVersion: playlist.version,
-        sourceUrl: payload.sourceUrl,
-        importedJson: payload.importedJson,
+        sourceUrl: trimmedUrl,
       });
-    }
 
-    if (!result.ok) {
-      console.error("[createSourceFromUrl] failed:", result.error);
-    }
+      if (
+        !result.ok
+        && isNguoncUrl(trimmedUrl)
+        && isUpstreamImportBlock(result.error)
+      ) {
+        const payload = await fetchImportPayloadInBrowser(trimmedUrl);
+        result = await createSourceFromImportedJson({
+          adminSecret,
+          playlistId: playlist.id,
+          playlistVersion: playlist.version,
+          sourceUrl: payload.sourceUrl,
+          importedJson: payload.importedJson,
+        });
+      }
 
-    setStatus(result.ok ? result.data.message : result.error);
-    if (result.ok) {
+      if (!result.ok) {
+        console.error("[createSourceFromUrl] failed:", result.error);
+        showAppToast(result.error);
+        return;
+      }
+
+      showAppToast(result.data.message);
       router.refresh();
+    } catch (error) {
+      console.error("[createSourceFromUrl] failed:", error);
+      showAppToast(asErrorMessage(error));
     }
   }
 
   async function handleRefresh() {
     if (!source) {
-      setStatus("No source selected.");
+      showAppToast("No source selected.");
       return;
     }
 
     if (!onRefresh) return;
+    if (submitLockRef.current) return;
 
-    startTransition(async () => {
-      setStatus("Refreshing...");
-      const message = await onRefresh(source.id, sourceUrl);
-      setStatus(message);
-    });
+    submitLockRef.current = true;
+    setIsPending(true);
+    setStatus(null);
+    showAppToast("Refreshing source...");
+    try {
+      await onRefresh(source.id, sourceUrl);
+    } catch (error) {
+      console.error("[EditorDrawer] refresh failed:", error);
+      showAppToast(asErrorMessage(error));
+    } finally {
+      submitLockRef.current = false;
+      setIsPending(false);
+    }
   }
 
   async function handleDelete(adminSecret: string) {
@@ -211,6 +254,8 @@ export function EditorDrawer({ playlist, source, onRefresh }: EditorDrawerProps)
       setStatus("No source selected.");
       return;
     }
+
+    setStatus("Deleting source...");
 
     const result = await softDeleteSource({
       adminSecret,

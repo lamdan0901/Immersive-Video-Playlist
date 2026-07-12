@@ -94,7 +94,13 @@ export function PlayerStage({
         return;
       }
 
-      if (e.code === "KeyK" || e.key === "k" || e.key === "K") {
+      if (
+        e.code === "KeyK" ||
+        e.key === "k" ||
+        e.key === "K" ||
+        e.code === "Space" ||
+        e.key === " "
+      ) {
         e.preventDefault();
         if (video.paused) {
           video.play().catch(() => undefined);

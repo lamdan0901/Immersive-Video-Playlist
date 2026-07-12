@@ -265,6 +265,17 @@ export function M3u8Player({ videoRef }: M3u8PlayerProps) {
 
       <div className="m3u8-player-gradient" aria-hidden="true" />
 
+      <div className="m3u8-player-mini-progress" aria-hidden="true">
+        <div
+          className="m3u8-player-mini-progress-buffer"
+          style={{ width: `${bufferedRatio * 100}%` }}
+        />
+        <div
+          className="m3u8-player-mini-progress-played"
+          style={{ width: `${progressRatio * 100}%` }}
+        />
+      </div>
+
       <div className="m3u8-player-controls" onClick={(event) => event.stopPropagation()}>
         <div
           className="m3u8-player-progress"

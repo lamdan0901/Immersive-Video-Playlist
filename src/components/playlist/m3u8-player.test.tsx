@@ -135,4 +135,16 @@ describe("M3u8Player", () => {
 
     expect(currentTime).toBe(90);
   });
+
+  it("renders a mini progress strip for when controls are hidden", () => {
+    const { container } = renderPlayer();
+
+    const mini = container.querySelector(".m3u8-player-mini-progress");
+    const miniBuffer = container.querySelector(".m3u8-player-mini-progress-buffer");
+    const miniPlayed = container.querySelector(".m3u8-player-mini-progress-played");
+
+    expect(mini).toBeInTheDocument();
+    expect(mini).toContainElement(miniBuffer);
+    expect(mini).toContainElement(miniPlayed);
+  });
 });

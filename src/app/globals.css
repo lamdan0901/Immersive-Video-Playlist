@@ -1282,18 +1282,22 @@ select {
   white-space: nowrap;
 }
 
-.inline-toast {
-  position: absolute;
+/* Viewport-fixed corner toast (portaled to document.body). */
+.app-corner-toast {
+  position: fixed;
+  top: 24px;
   right: 24px;
-  bottom: 24px;
-  z-index: 80;
+  z-index: 2147483000;
   max-width: min(420px, calc(100vw - 48px));
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-panel);
+  border-radius: 10px;
+  background: rgba(20, 20, 20, 0.96);
   color: var(--color-text);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-panel-bold);
+  pointer-events: none;
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
 .playlist-detail-editor-overlay {

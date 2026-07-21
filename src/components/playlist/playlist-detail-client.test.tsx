@@ -1,14 +1,19 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearAppToast } from "@/lib/app-toast";
+import { AppToastHost } from "./toast";
 import { PlaylistDetailClient } from "./playlist-detail-client";
 
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
 const {
+  createSourceFromUrlMock,
   performClientRefreshMock,
   refreshSourceFromImportedJsonMock,
   savePlaybackProgressMock,
 } = vi.hoisted(() => ({
+  createSourceFromUrlMock: vi.fn(),
   performClientRefreshMock: vi.fn(),
   refreshSourceFromImportedJsonMock: vi.fn(),
   savePlaybackProgressMock: vi.fn(),
@@ -22,7 +27,8 @@ vi.mock("@/actions/playlists", () => ({
 }));
 
 vi.mock("@/actions/import", () => ({
-  createSourceFromUrl: vi.fn(),
+  createSourceFromUrl: createSourceFromUrlMock,
+  createSourceFromImportedJson: vi.fn(),
   refreshSourceFromImportedJson: refreshSourceFromImportedJsonMock,
 }));
 
@@ -113,9 +119,23 @@ const playlist = {
   ],
 };
 
+function renderWithToast(ui: ReactElement) {
+  return render(
+    <>
+      <AppToastHost />
+      {ui}
+    </>,
+  );
+}
+
+function getCornerToast() {
+  return document.getElementById("app-corner-toast-root");
+}
+
 describe("PlaylistDetailClient", () => {
   beforeEach(() => {
     localStorage.clear();
+    createSourceFromUrlMock.mockReset();
     performClientRefreshMock.mockReset();
     pushMock.mockReset();
     refreshMock.mockReset();
@@ -134,12 +154,22 @@ describe("PlaylistDetailClient", () => {
         message: "Refreshed source Vietsub.",
       },
     });
+    createSourceFromUrlMock.mockResolvedValue({
+      ok: true,
+      data: { message: 'Created source "video.test" from URL.' },
+    });
     vi.useFakeTimers();
   });
 
+  afterEach(() => {
+    act(() => {
+      clearAppToast();
+    });
+    vi.useRealTimers();
+  });
+
   it("hides sources and episodes until the editor is opened", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -161,8 +191,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("renders the editor drawer with playlist and source fields", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -197,8 +226,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("moves focus to skip-start seconds after entering the minute digit", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -216,11 +244,72 @@ describe("PlaylistDetailClient", () => {
     expect(document.activeElement).toBe(secondsInput);
   });
 
+  it("keeps create-source pending until fetch and save finish, then shows the result", async () => {
+    vi.useRealTimers();
+    localStorage.setItem("adminSecret", "top-secret");
+
+    let resolveCreate:
+      | ((value: { ok: true; data: { message: string } }) => void)
+      | undefined;
+    createSourceFromUrlMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+
+    renderWithToast(<PlaylistDetailClient
+        playlist={playlist}
+        initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open editor" }));
+
+    const sourceUrlInput = screen.getByLabelText("Source URL");
+    fireEvent.change(sourceUrlInput, {
+      target: { value: "https://video.test/new-source.json" },
+    });
+
+    const createButton = screen.getByRole("button", {
+      name: "Create New Source",
+    });
+    fireEvent.click(createButton);
+
+    expect(await screen.findByText("Working...")).toBeInTheDocument();
+    expect(getCornerToast()).toHaveTextContent("Creating source...");
+    expect(getCornerToast()?.className).toContain("app-corner-toast");
+    expect(createButton).toBeDisabled();
+    expect(
+      screen.queryByText('Created source "video.test" from URL.'),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveCreate?.({
+        ok: true,
+        data: { message: 'Created source "video.test" from URL.' },
+      });
+      await Promise.resolve();
+    });
+
+    expect(getCornerToast()).toHaveTextContent(
+      'Created source "video.test" from URL.',
+    );
+    expect(getCornerToast()?.className).toContain("app-corner-toast");
+    expect(screen.queryByText("Working...")).not.toBeInTheDocument();
+    expect(createSourceFromUrlMock).toHaveBeenCalledWith({
+      adminSecret: "top-secret",
+      playlistId: "playlist-1",
+      playlistVersion: 1,
+      sourceUrl: "https://video.test/new-source.json",
+    });
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
   it("fetches refresh payloads in the browser and persists them to the server", async () => {
     localStorage.setItem("adminSecret", "top-secret");
 
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -253,9 +342,8 @@ describe("PlaylistDetailClient", () => {
       },
     });
     expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Refreshed source Vietsub.",
-    );
+    expect(getCornerToast()).toHaveTextContent("Refreshed source Vietsub.");
+    expect(getCornerToast()?.className).toContain("app-corner-toast");
   });
 
   it("logs refresh errors to the console when persistence fails", async () => {
@@ -268,8 +356,7 @@ describe("PlaylistDetailClient", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -287,15 +374,13 @@ describe("PlaylistDetailClient", () => {
       "[PlaylistDetailClient] refresh failed:",
       "Refresh failed upstream",
     );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Refresh failed upstream",
-    );
+    expect(getCornerToast()).toHaveTextContent("Refresh failed upstream");
+    expect(getCornerToast()?.className).toContain("app-corner-toast");
     consoleErrorSpy.mockRestore();
   });
 
   it("selects the full skip-start field value on focus", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -322,8 +407,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("closes the editor when Escape is pressed", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -346,8 +430,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("closes the editor when clicking outside the dock", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -367,8 +450,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("navigates back to the home page from the title bar button", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -383,8 +465,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("toggles the editor with Ctrl+E", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -408,8 +489,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("keeps the current source when the target source does not have the current episode index", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
       />,
@@ -420,7 +500,7 @@ describe("PlaylistDetailClient", () => {
       screen.getByRole("button", { name: /Dubbed1 ep · EMBED/i }),
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(getCornerToast()).toHaveTextContent(
       "Episode does not exist in that source",
     );
     expect(
@@ -429,15 +509,14 @@ describe("PlaylistDetailClient", () => {
     expect(pushMock).not.toHaveBeenCalled();
 
     act(() => {
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(3200);
     });
 
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(getCornerToast()).toBeNull();
   });
 
   it("advances to the next episode on Ctrl+X and updates the route", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -455,8 +534,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("shows a next episode button when another episode exists and advances on click", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -471,8 +549,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("renders the edit control as an icon button", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -484,8 +561,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("hides the next episode button on the last episode", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 1 }}
       />,
@@ -497,8 +573,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("focuses the wrapper on mount", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -510,8 +585,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("shows only the episode progress counter in the top-left overlay", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={playlist}
         initialPlayback={{ sourceId: "source-a", episodeIndex: 0 }}
       />,
@@ -524,8 +598,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("ignores the shortcut when there is no current source", () => {
-    render(
-      <PlaylistDetailClient
+    renderWithToast(<PlaylistDetailClient
         playlist={{ ...playlist, sources: [] }}
         initialPlayback={{ sourceId: null, episodeIndex: 0 }}
       />,
@@ -541,8 +614,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("saves playback progress when stopping after the watched position changes", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -573,8 +645,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("does not save playback progress on unrelated rerenders", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -600,8 +671,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("does not resend the same playback second after an interval save in one session", () => {
-    const { container, unmount } = render(
-      <PlaylistDetailClient
+    const { container, unmount } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -662,8 +732,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("resumes from optimistic progress when revisiting an episode in the same session", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -711,8 +780,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("applies playlist skip start when it is ahead of saved progress for native playback", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -747,8 +815,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("saves progress to the old episode before switching episodes", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -783,8 +850,7 @@ describe("PlaylistDetailClient", () => {
     savePlaybackProgressMock.mockRejectedValueOnce(new Error("save failed"));
     savePlaybackProgressMock.mockResolvedValue(undefined);
 
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -814,8 +880,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("skips forward 10 seconds on L keypress and backward 10 seconds on J keypress", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -855,8 +920,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("does not skip when L or J is pressed inside an input field", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -896,8 +960,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("skips forward 30 seconds on right arrow and backward 30 seconds on left arrow", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({
@@ -934,8 +997,7 @@ describe("PlaylistDetailClient", () => {
   });
 
   it("adjusts volume by 20 percent on up and down arrow keys", () => {
-    const { container } = render(
-      <PlaylistDetailClient
+    const { container } = renderWithToast(<PlaylistDetailClient
         playlist={{
           ...playlist,
           sources: playlist.sources.map((source) => ({

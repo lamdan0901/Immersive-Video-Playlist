@@ -1,6 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { clearAppToast } from "@/lib/app-toast";
+import { AppToastHost } from "@/components/playlist/toast";
 import { PlaylistCard } from "./playlist-card";
+
+function renderWithToast(ui: React.ReactElement) {
+  return render(
+    <>
+      <AppToastHost />
+      {ui}
+    </>,
+  );
+}
 
 const refreshMock = vi.fn();
 const {
@@ -53,6 +64,12 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  act(() => {
+    clearAppToast();
+  });
+});
+
 it("renders the active episode progress", () => {
   render(
     <PlaylistCard
@@ -93,7 +110,7 @@ it("renders the active episode progress", () => {
 it("fetches source payloads in the browser and persists them when refreshing", async () => {
   localStorage.setItem("adminSecret", "top-secret");
 
-  render(
+  renderWithToast(
     <PlaylistCard
       playlist={{
         id: "playlist-1",
@@ -150,7 +167,10 @@ it("fetches source payloads in the browser and persists them when refreshing", a
     ],
   });
   expect(refreshMock).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("status")).toHaveTextContent("Refreshed 1 source.");
+  const toast = screen.getByRole("status");
+  expect(toast).toHaveTextContent("Refreshed 1 source.");
+  expect(toast.className).toContain("app-corner-toast");
+  expect(toast.parentElement).toBe(document.body);
 });
 
 it("logs refresh errors to the console when the server refresh fails", async () => {
@@ -163,7 +183,7 @@ it("logs refresh errors to the console when the server refresh fails", async () 
     .spyOn(console, "error")
     .mockImplementation(() => {});
 
-  render(
+  renderWithToast(
     <PlaylistCard
       playlist={{
         id: "playlist-1",
@@ -207,6 +227,9 @@ it("logs refresh errors to the console when the server refresh fails", async () 
     );
   });
 
-  expect(screen.getByRole("status")).toHaveTextContent("Refresh failed upstream");
+  const toast = screen.getByRole("status");
+  expect(toast).toHaveTextContent("Refresh failed upstream");
+  expect(toast.className).toContain("app-corner-toast");
+  expect(toast.parentElement).toBe(document.body);
   consoleErrorSpy.mockRestore();
 });

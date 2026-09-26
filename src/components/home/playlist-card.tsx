@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import { refreshPlaylistSourcesFromImportedJson } from "@/actions/import";
 import {
   softDeletePlaylist,
@@ -287,6 +288,24 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
           </div>
         </div>
       </Link>
+      {menuOpen ? null : (
+        <button
+          type="button"
+          className="playlist-card-refresh"
+          aria-label="Refresh sources"
+          title="Refresh sources"
+          onClick={handleRefreshSourcesClick}
+          disabled={isRefreshingSources}
+        >
+          <RefreshCw
+            aria-hidden="true"
+            size={16}
+            className={
+              isRefreshingSources ? "playlist-card-refresh-icon is-spinning" : "playlist-card-refresh-icon"
+            }
+          />
+        </button>
+      )}
       {menuOpen ? (
         <div
           className="playlist-card-menu"

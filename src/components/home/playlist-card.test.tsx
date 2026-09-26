@@ -173,6 +173,73 @@ it("fetches source payloads in the browser and persists them when refreshing", a
   expect(toast.parentElement).toBe(document.body);
 });
 
+it("shows a hover refresh icon that triggers the same refresh sources flow", async () => {
+  localStorage.setItem("adminSecret", "top-secret");
+
+  renderWithToast(
+    <PlaylistCard
+      playlist={{
+        id: "playlist-1",
+        title: "Fate Chooses You",
+        sourceTitles: ["Vietsub"],
+        metadataText: "romance",
+        pinned: false,
+        pinnedOrder: 0,
+        version: 1,
+        autoRefreshDisabled: false,
+        lastPlayedAt: "2026-05-01T23:30:00.000-05:00",
+        updatedAt: "2026-05-09T08:15:00.000Z",
+        activeSourceTitle: "Vietsub",
+        activeSourceLastPlayedEpisodeIndex: 2,
+        activeSourceTotalEpisodes: 12,
+        allSources: [{ title: "Vietsub", totalEpisodes: 12 }],
+        refreshSources: [
+          {
+            id: "source-a",
+            sourceUrl: "https://video.test/source-a.json",
+          },
+        ],
+        banner: {
+          type: "gradient",
+          value: "linear-gradient(135deg, #14532d, #1d4ed8)",
+          initials: "FC",
+        },
+      }}
+    />,
+  );
+
+  const hoverRefresh = screen.getByRole("button", {
+    name: "Refresh sources",
+  });
+  expect(hoverRefresh.className).toContain("playlist-card-refresh");
+  expect(hoverRefresh).toContainHTML("svg");
+
+  fireEvent.click(hoverRefresh);
+
+  await waitFor(() => {
+    expect(fetchImportPayloadInBrowserMock).toHaveBeenCalledWith(
+      "https://video.test/source-a.json",
+    );
+  });
+
+  expect(refreshPlaylistSourcesFromImportedJsonMock).toHaveBeenCalledWith({
+    adminSecret: "top-secret",
+    playlistId: "playlist-1",
+    refreshes: [
+      {
+        sourceId: "source-a",
+        sourceUrl: "https://video.test/source-a.json",
+        importedJson: {
+          status: "success",
+        },
+      },
+    ],
+  });
+  expect(refreshMock).toHaveBeenCalledTimes(1);
+  const toast = screen.getByRole("status");
+  expect(toast).toHaveTextContent("Refreshed 1 source.");
+});
+
 it("logs refresh errors to the console when the server refresh fails", async () => {
   localStorage.setItem("adminSecret", "top-secret");
   refreshPlaylistSourcesFromImportedJsonMock.mockResolvedValueOnce({

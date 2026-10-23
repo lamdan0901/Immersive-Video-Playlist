@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 import { chooseBanner } from "@/lib/banner";
@@ -57,46 +57,53 @@ async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
   if (playlistRows.length === 0) return [];
 
   const allSourceIds = playlistRows.flatMap((p) => p.sources.map((s) => s.id));
+  const lastPlayedPairs = playlistRows.flatMap((p) => {
+    const active =
+      p.sources.find((s) => s.id === p.lastPlayedSourceId) ?? p.sources[0];
+    return active?.lastPlayedEpisodeKey
+      ? [{ sourceId: active.id, episodeKey: active.lastPlayedEpisodeKey }]
+      : [];
+  });
 
   const [countRows, indexRows] = await Promise.all([
-    db
-      .select({
-        sourceId: episodes.sourceId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(episodes)
-      .where(
-        and(
-          isNull(episodes.deletedAt),
-          sql`${episodes.sourceId} = ANY(${sql.param(allSourceIds)})`,
+    allSourceIds.length > 0
+      ? db
+          .select({
+            sourceId: episodes.sourceId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(episodes)
+          .where(
+            and(
+              isNull(episodes.deletedAt),
+              inArray(episodes.sourceId, allSourceIds),
+            ),
+          )
+          .groupBy(episodes.sourceId)
+      : Promise.resolve([] as { sourceId: string; count: number }[]),
+    lastPlayedPairs.length > 0
+      ? db
+          .select({
+            sourceId: episodes.sourceId,
+            episodeKey: episodes.episodeKey,
+            sortOrder: episodes.sortOrder,
+          })
+          .from(episodes)
+          .where(
+            and(
+              isNull(episodes.deletedAt),
+              sql`(${episodes.sourceId}, ${episodes.episodeKey}) in (${sql.join(
+                lastPlayedPairs.map(
+                  (pair) =>
+                    sql`(${sql.param(pair.sourceId)}, ${sql.param(pair.episodeKey)})`,
+                ),
+                sql`, `,
+              )})`,
+            ),
+          )
+      : Promise.resolve(
+          [] as { sourceId: string; episodeKey: string; sortOrder: number }[],
         ),
-      )
-      .groupBy(episodes.sourceId),
-    db
-      .select({
-        sourceId: episodes.sourceId,
-        episodeKey: episodes.episodeKey,
-        sortOrder: episodes.sortOrder,
-      })
-      .from(episodes)
-      .where(
-        and(
-          isNull(episodes.deletedAt),
-          sql`(${episodes.sourceId}, ${episodes.episodeKey}) in (${sql.join(
-            playlistRows
-              .map((p) => {
-                const active =
-                  p.sources.find((s) => s.id === p.lastPlayedSourceId) ??
-                  p.sources[0];
-                return active?.lastPlayedEpisodeKey
-                  ? sql`(${sql.param(active.id)}, ${sql.param(active.lastPlayedEpisodeKey)})`
-                  : null;
-              })
-              .filter((x): x is NonNullable<typeof x> => x !== null),
-            sql`, `,
-          )})`,
-        ),
-      ),
   ]);
 
   const countMap = new Map(countRows.map((r) => [r.sourceId, r.count]));

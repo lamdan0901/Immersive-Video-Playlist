@@ -491,12 +491,12 @@ select {
 }
 
 .playlist-card {
-  display: grid;
-  grid-template-rows: 2fr 1fr;
-  height: 450px;
+  position: relative;
+  display: block;
+  height: 300px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   color: inherit;
   text-decoration: none;
@@ -509,7 +509,6 @@ select {
 }
 
 .playlist-group-card {
-  align-items: stretch;
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -522,7 +521,7 @@ select {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-  font-size: 1.05rem;
+  font-size: 0.975rem;
   font-weight: 700;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -543,7 +542,8 @@ select {
 }
 
 .playlist-group-dialog {
-  width: min(920px, calc(100% - 24px));
+  /* Each column adds a 240px card and a 20px gap to the dialog width. */
+  width: min(calc(30px + 260px * var(--playlist-group-columns)), calc(100% - 24px));
   max-height: calc(100dvh - 24px);
   padding: clamp(16px, 4vw, 24px);
   border: 1px solid var(--color-border);
@@ -555,6 +555,10 @@ select {
 
 .playlist-group-dialog:has(.playlist-group-editor) {
   width: min(560px, calc(100% - 24px));
+}
+
+.playlist-group-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
 }
 
 .playlist-group-dialog::backdrop {
@@ -624,10 +628,6 @@ select {
   color: #d4d4d4;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.playlist-group-dialog .playlist-group-playlists {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
 }
 
 .playlist-group-editor {
@@ -709,7 +709,7 @@ select {
 .playlist-card-refresh {
   position: absolute;
   top: 12px;
-  right: 12px;
+  left: 12px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -865,7 +865,9 @@ select {
 }
 
 .playlist-card-banner {
-  position: relative;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   display: grid;
   place-items: center;
   background-color: #111827;
@@ -877,7 +879,17 @@ select {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent, rgba(15, 15, 15, 0.36));
+  background-image: linear-gradient(
+    180deg,
+    rgba(12, 12, 16, 0.18),
+    transparent 42%,
+    rgba(12, 12, 16, 0.92)
+  );
+  transition: background-color 160ms ease;
+}
+
+.playlist-card:is(:hover, :focus-visible) .playlist-card-banner::after {
+  background-color: rgba(12, 12, 16, 0.22);
 }
 
 .playlist-card-initials {
@@ -917,26 +929,58 @@ select {
   font-size: 1.5rem;
 }
 
-.playlist-card-body {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-  gap: 12px;
-  padding: 16px;
+.playlist-card-caption {
+  position: absolute;
+  inset: auto 16px 16px;
+  display: grid;
+  gap: 6px;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
 }
 
-.playlist-card-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.playlist-card-heading h2 {
+.playlist-card-caption h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.975rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.playlist-card-progress {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(28, 28, 28, 0.82);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.playlist-card-progress span {
+  color: #bdbdbd;
+}
+
+.playlist-card-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: auto;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 50%;
+  background: rgba(35, 35, 40, 0.58);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.playlist-card:is(:hover, :focus-visible) .playlist-card-play {
+  opacity: 1;
 }
 
 .playlist-card-pin {
@@ -948,23 +992,16 @@ select {
   font-size: 0.75rem;
 }
 
-.playlist-card-sources,
-.playlist-card-meta,
 .playlist-empty {
   margin: 0;
   color: #a3a3a3;
 }
 
 .playlist-card-sources {
-  color: #e5e5e5;
-  font-size: 1rem;
-}
-
-.playlist-card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  font-size: 0.875rem;
+  gap: 6px;
+  overflow-wrap: anywhere;
 }
 
 .playlist-empty,

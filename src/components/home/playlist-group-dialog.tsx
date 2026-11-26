@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { removePlaylistGroup, savePlaylistGroup } from "@/actions/playlist-groups";
@@ -8,6 +8,15 @@ import type { PlaylistSummary } from "@/db/queries/home";
 import type { ActionResult } from "@/lib/admin";
 import { PlaylistCard } from "./playlist-card";
 import type { PlaylistGroupEntry } from "./playlist-library";
+
+function isOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
+  if (event.target !== event.currentTarget) return false;
+
+  // The dialog itself receives backdrop clicks and clicks on its padding.
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+  const { clientX, clientY } = event;
+  return clientX < left || clientX >= right || clientY < top || clientY >= bottom;
+}
 
 export function PlaylistGroupDialog({
   entry,
@@ -21,12 +30,14 @@ export function PlaylistGroupDialog({
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const pressedBackdrop = useRef(false);
   const titleId = useId();
   const [editing, setEditing] = useState(!entry);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const saveLock = useRef(false);
   const router = useRouter();
+  const columns = Math.min(5, Math.max(1, entry?.playlists.length ?? 0));
 
   useEffect(() => {
     dialogRef.current?.showModal();
@@ -67,9 +78,18 @@ export function PlaylistGroupDialog({
     <dialog
       ref={dialogRef}
       className="playlist-group-dialog"
+      style={{ "--playlist-group-columns": columns } as CSSProperties}
       aria-labelledby={titleId}
       onClose={onClose}
       onCancel={(event) => { if (saveLock.current) event.preventDefault(); }}
+      onPointerDown={(event) => {
+        pressedBackdrop.current = event.isPrimary && event.button === 0 && isOnBackdrop(event);
+      }}
+      onClick={(event) => {
+        const startedOnBackdrop = pressedBackdrop.current;
+        pressedBackdrop.current = false;
+        if (startedOnBackdrop && isOnBackdrop(event)) close();
+      }}
     >
       <header className="playlist-group-dialog-header">
         <h2 id={titleId}>{editing ? (entry ? "Edit group" : "New group") : entry?.title}</h2>
@@ -102,7 +122,7 @@ export function PlaylistGroupDialog({
         <>
           {entry?.group.note ? <p className="playlist-group-note">{entry.group.note}</p> : null}
           {entry?.playlists.length ? (
-            <div className="playlist-grid playlist-group-playlists">
+            <div className="playlist-grid playlist-group-grid">
               {entry.playlists.map((playlist) => <PlaylistCard key={playlist.id} playlist={playlist} />)}
             </div>
           ) : <p className="playlist-group-note">No playlists in this group.</p>}

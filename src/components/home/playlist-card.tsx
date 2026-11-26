@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { Play, RefreshCw } from "lucide-react";
 import { refreshPlaylistSourcesFromImportedJson } from "@/actions/import";
 import {
   softDeletePlaylist,
@@ -52,6 +52,9 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
   const backgroundImage =
     playlist.banner.type === "image" ? playlist.banner.value : null;
   const cachedImageUrl = useCachedImage(backgroundImage);
+  const currentEpisode = playlist.activeSourceLastPlayedEpisodeIndex + 1;
+  const hasSingleSource = playlist.allSources.length === 1;
+  const hasEpisodes = playlist.activeSourceTotalEpisodes > 0;
 
   async function handleDeleteClick(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -199,6 +202,7 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
       <Link href={`/playlist/${playlist.id}`} className="playlist-card">
         <div
           className={`playlist-card-banner playlist-card-banner-${playlist.banner.type}`}
+          aria-hidden="true"
           style={
             playlist.banner.type === "image"
               ? {
@@ -213,79 +217,56 @@ export function PlaylistCard({ playlist }: { playlist: PlaylistSummary }) {
             </span>
           ) : null}
         </div>
-        <div className="playlist-card-body">
-          <div className="playlist-card-heading">
-            <h2>{playlist.title}</h2>
-          </div>
-          <div className="playlist-card-sources">
-            {playlist.activeSourceTotalEpisodes > 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
-                >
+        {hasEpisodes && (
+          <p className="playlist-card-progress">
+            EP {currentEpisode}
+            {hasSingleSource && <span>/{playlist.activeSourceTotalEpisodes}</span>}
+          </p>
+        )}
+        <span className="playlist-card-play" aria-hidden="true">
+          <Play size={20} fill="currentColor" />
+        </span>
+        <div className="playlist-card-caption">
+          <h2>{playlist.title}</h2>
+          {!hasSingleSource && hasEpisodes && (
+            <div className="playlist-card-sources">
+              {playlist.allSources.map((s, i) => {
+                const isActive = s.title === playlist.activeSourceTitle;
+                return (
                   <span
+                    key={i}
                     style={{
+                      fontSize: "0.75rem",
+                      padding: "2px 8px",
+                      borderRadius: "999px",
+                      background: isActive
+                        ? "rgba(59, 130, 246, 0.15)"
+                        : "rgba(20, 166, 25, 0.1)",
+                      color: isActive ? "#93c5fd" : "#86d88a",
+                      border: `1px solid ${
+                        isActive
+                          ? "rgba(59, 130, 246, 0.3)"
+                          : "rgba(20, 166, 25, 0.3)"
+                      }`,
                       display: "inline-flex",
                       alignItems: "center",
-                      background: "rgba(255, 255, 255, 0.12)",
-                      padding: "4px 10px",
-                      borderRadius: "6px",
-                      color: "#fff",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      letterSpacing: "0.05em",
+                      gap: "5px",
                     }}
                   >
-                    EP {playlist.activeSourceLastPlayedEpisodeIndex + 1}
+                    <span>{s.title}</span>
+                    <strong
+                      style={{
+                        color: isActive ? "#ffffff" : "#d4d4d4",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {s.totalEpisodes}
+                    </strong>
                   </span>
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {playlist.allSources.map((s, i) => {
-                    const isActive = s.title === playlist.activeSourceTitle;
-                    return (
-                      <span
-                        key={i}
-                        style={{
-                          fontSize: "0.75rem",
-                          padding: "2px 8px",
-                          borderRadius: "999px",
-                          background: isActive
-                            ? "rgba(59, 130, 246, 0.15)"
-                            : "rgba(20, 166, 25, 0.1)",
-                          color: isActive ? "#93c5fd" : "#46a346ff",
-                          border: `1px solid ${
-                            isActive
-                              ? "rgba(59, 130, 246, 0.3)"
-                              : "rgba(20, 166, 25, 0.3)"
-                          }`,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "5px",
-                        }}
-                      >
-                        <span>{s.title}</span>
-                        <strong
-                          style={{
-                            color: isActive ? "#ffffff" : "#d4d4d4",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {s.totalEpisodes}
-                        </strong>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </Link>
       {menuOpen ? null : (

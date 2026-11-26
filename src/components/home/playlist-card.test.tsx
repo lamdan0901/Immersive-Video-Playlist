@@ -103,8 +103,8 @@ it("renders the active episode progress", () => {
     />,
   );
 
-  expect(screen.getByText("EP 3")).toBeInTheDocument();
-  expect(screen.getByText("Vietsub")).toBeInTheDocument();
+  expect(screen.getByText("EP 3")).toHaveTextContent("EP 3/12");
+  expect(screen.queryByText("Vietsub")).not.toBeInTheDocument();
 });
 
 it("fetches source payloads in the browser and persists them when refreshing", async () => {

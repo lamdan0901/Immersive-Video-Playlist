@@ -18,7 +18,6 @@ function PlaylistGroupCover({ banner }: { banner: PlaylistGroupEntry["playlists"
 }
 
 export function PlaylistGroupCard({ entry, onOpen }: { entry: PlaylistGroupEntry; onOpen: () => void }) {
-  const count = entry.playlists.length;
   const covers = entry.playlists.slice(0, 4);
 
   return (
@@ -27,9 +26,8 @@ export function PlaylistGroupCard({ entry, onOpen }: { entry: PlaylistGroupEntry
         {covers.map((playlist) => <PlaylistGroupCover key={playlist.id} banner={playlist.banner} />)}
         <span className="playlist-group-icon"><Folder size={18} /></span>
       </span>
-      <span className="playlist-card-body">
+      <span className="playlist-card-caption">
         <span className="playlist-group-title">{entry.title}</span>
-        <span className="playlist-card-meta">{count} {count === 1 ? "playlist" : "playlists"}</span>
       </span>
     </button>
   );

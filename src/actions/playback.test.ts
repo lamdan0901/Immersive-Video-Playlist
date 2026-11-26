@@ -84,10 +84,10 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/db/client", () => ({
-  db: {
+  getDb: async () => ({
     transaction: transactionMock,
     update: updateMock,
-  },
+  }),
 }));
 
 vi.mock("./playlists", () => ({

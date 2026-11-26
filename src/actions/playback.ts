@@ -2,7 +2,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 import { logMutation } from "./playlists";
 
@@ -25,6 +25,7 @@ export async function savePlaybackProgress(input: {
   const monotonicSeconds = <TColumn>(column: TColumn) =>
     sql<number>`greatest(${column}, ${seconds})`;
 
+  const db = await getDb();
   await db.transaction(async (tx) => {
     const playlistRows = await tx
       .update(playlists)
@@ -88,6 +89,7 @@ export async function savePlaylistVolume(input: {
     ? Math.max(0, Math.min(1, input.volume))
     : 1.0;
 
+  const db = await getDb();
   await db
     .update(playlists)
     .set({

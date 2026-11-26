@@ -9,6 +9,24 @@ const IMPORT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
 const BROWSER_IMPORT_RETRY_DELAY_MS = 1000;
 
+export function getMockPlaylistSlug(sourceUrl: string): string | undefined {
+  return /^(?:https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?)?\/api\/mock-playlists\/([a-z-]+)$/.exec(sourceUrl)?.[1];
+}
+
+export function getPlaylistSourceKind(sourceUrl: string) {
+  if (getMockPlaylistSlug(sourceUrl)) return "mock";
+
+  try {
+    const { protocol, hostname } = new URL(sourceUrl);
+    if (protocol !== "https:" && protocol !== "http:") return;
+
+    if (hostname === "phim.nguonc.com" || hostname.endsWith(".phim.nguonc.com")) return "nguonc";
+    if (hostname === "ophim1.com" || hostname.endsWith(".ophim1.com")) return "ophim";
+  } catch {
+    return;
+  }
+}
+
 export function resolveApiUrl(sourceUrl: string): string {
   try {
     const url = new URL(sourceUrl);
@@ -399,12 +417,13 @@ export function normalizeImportedMovie(
   sourceUrl: string,
 ): ImportedMovie {
   const record = data as Record<string, unknown>;
-  const isNguonC = sourceUrl.includes("phim.nguonc.com");
-  const isOPhim = sourceUrl.includes("ophim1.com");
+  const sourceKind = getPlaylistSourceKind(sourceUrl);
+  const isNguonC = sourceKind === "nguonc";
+  const usesM3u8 = sourceKind === "ophim" || sourceKind === "mock";
   const item = (
     isNguonC
       ? record.movie
-      : isOPhim
+      : usesM3u8
         ? (record.data as Record<string, unknown> | undefined)?.item
         : null
   ) as Record<string, unknown> | null;
@@ -441,7 +460,7 @@ export function normalizeImportedMovie(
     sources: normalizeServers(
       selectedServers,
       sourceUrl,
-      isOPhim ? "m3u8" : "embed",
+      usesM3u8 ? "m3u8" : "embed",
     ),
   };
 }

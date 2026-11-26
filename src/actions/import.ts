@@ -2,7 +2,8 @@
 
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { db } from "@/db/client";
+import { getDb, isMockPlaylistMode } from "@/db/client";
+import { mockPlaylists } from "@/db/mock-playlist-fixtures";
 import {
   episodes,
   playlists,
@@ -14,6 +15,8 @@ import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import {
   buildImportRequestHeaders,
   extractNguoncPayloadFromHtml,
+  getMockPlaylistSlug,
+  getPlaylistSourceKind,
   isNguoncUrl,
   normalizeImportedMovie,
   resolveApiUrl,
@@ -36,7 +39,8 @@ type RefreshPlaylistSourcesSuccess = {
   failedCount: number;
 };
 type CreatePlaylistSuccess = { message: string; playlistId: string };
-type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Db = Awaited<ReturnType<typeof getDb>>;
+type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 const AUTO_REFRESH_DELAY_MS = 3000;
 
 function asErrorMessage(error: unknown): string {
@@ -82,7 +86,9 @@ async function sleep(ms: number, signal?: AbortSignal) {
   });
 }
 
-function sourceTitleFromUrl(sourceUrl: string) {
+function sourceTitleFromUrl(sourceUrl: string, importedTitle: string) {
+  if (getMockPlaylistSlug(sourceUrl)) return importedTitle;
+
   try {
     return new URL(sourceUrl).hostname;
   } catch {
@@ -127,6 +133,7 @@ async function createPlaylistFromImportedJsonInternal(
   }
 
   const now = new Date();
+  const db = await getDb();
   const playlistId = await db.transaction(async (tx) => {
     const insertedPlaylists = await tx
       .insert(playlists)
@@ -151,7 +158,7 @@ async function createPlaylistFromImportedJsonInternal(
         .values({
           playlistId,
           sourceKey: importedSource.sourceKey,
-          sourceTitle: sourceTitleFromUrl(sourceUrl),
+          sourceTitle: sourceTitleFromUrl(sourceUrl, importedSource.sourceTitle),
           sourceUrl: importedSource.sourceUrl,
           preferredLinkType: importedSource.preferredLinkType,
           sortOrder: index,
@@ -207,6 +214,14 @@ async function createPlaylistFromImportedJsonInternal(
 }
 
 async function fetchSourceJson(url: string, signal?: AbortSignal) {
+  const mockSlug = getMockPlaylistSlug(url);
+  if (mockSlug) {
+    const payload = isMockPlaylistMode() ? mockPlaylists.get(mockSlug) : undefined;
+    if (!payload) throw new Error("Mock playlist not found");
+    if (signal?.aborted) throw createAbortError();
+    return payload;
+  }
+
   console.log("[fetchSourceJson] Fetching:", url);
   const response = await fetch(url, {
     cache: "no-store",
@@ -306,6 +321,7 @@ async function updateFailedImport(
   sourceUrl: string,
   message: string,
 ) {
+  const db = await getDb();
   await db
     .update(sources)
     .set({
@@ -336,6 +352,7 @@ async function performSourceRefreshFromImportedJson(
 
   const now = new Date();
 
+  const db = await getDb();
   const existingRows = await db
     .select({ preferredLinkType: sources.preferredLinkType })
     .from(sources)
@@ -346,7 +363,7 @@ async function performSourceRefreshFromImportedJson(
     await tx
       .update(sources)
       .set({
-        sourceTitle: sourceTitleFromUrl(sourceUrl),
+        sourceTitle: sourceTitleFromUrl(sourceUrl, importedSource.sourceTitle),
         sourceUrl,
         preferredLinkType: preservedLinkType,
         importError: null,
@@ -453,6 +470,12 @@ export async function createPlaylistFromUrl(input: {
   }
 
   const sourceUrl = resolveApiUrl(rawUrl);
+  if (!getPlaylistSourceKind(sourceUrl)) {
+    return {
+      ok: false,
+      error: "Unsupported playlist link. Paste an OPhim or NguonC movie link.",
+    };
+  }
 
   try {
     return await createPlaylistFromImportedJsonInternal(
@@ -460,6 +483,9 @@ export async function createPlaylistFromUrl(input: {
       await fetchSourceJson(sourceUrl),
     );
   } catch (error) {
+    if (error instanceof SyntaxError) {
+      return { ok: false, error: "This link did not return playlist data. Check the URL and try again." };
+    }
     console.error("[createPlaylistFromUrl] failed:", input.sourceUrl, error);
     return { ok: false, error: asErrorMessage(error) };
   }
@@ -574,7 +600,7 @@ async function createSourceFromImportedJsonInternal(
   }
 
   const now = new Date();
-  const createdSourceTitle = sourceTitleFromUrl(sourceUrl);
+  const db = await getDb();
   const created = await db.transaction(async (tx) => {
     const playlistResult = await tx
       .update(playlists)
@@ -607,6 +633,7 @@ async function createSourceFromImportedJsonInternal(
 
     const createdSources: { id: string; title: string }[] = [];
     for (const importedSource of importedMovie.sources) {
+      const createdSourceTitle = sourceTitleFromUrl(sourceUrl, importedSource.sourceTitle);
       const uniqueSourceKey = `${importedSource.sourceKey}-${Date.now()}`;
       const inserted = await tx
         .insert(sources)
@@ -692,6 +719,7 @@ export async function refreshSource(input: {
 
   const sourceUrl = resolveApiUrl(rawUrl);
 
+  const db = await getDb();
   const sourceRows = await db
     .select({
       id: sources.id,
@@ -759,6 +787,7 @@ export async function refreshSourceFromImportedJson(input: {
 
   const sourceUrl = resolveApiUrl(rawUrl);
 
+  const db = await getDb();
   const sourceRows = await db
     .select({
       id: sources.id,
@@ -819,6 +848,7 @@ export async function refreshPlaylistSources(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   const sourceRows = await db
     .select({
       id: sources.id,
@@ -898,6 +928,7 @@ export async function refreshPlaylistSourcesFromImportedJson(input: {
     return { ok: false, error: "No sources to refresh." };
   }
 
+  const db = await getDb();
   const sourceRows = await db
     .select({
       id: sources.id,
@@ -1002,6 +1033,7 @@ async function performAutoRefresh(playlistId?: string, signal?: AbortSignal) {
     conditions.push(eq(sources.playlistId, playlistId));
   }
 
+  const db = await getDb();
   let query = db
     .select({
       id: sources.id,

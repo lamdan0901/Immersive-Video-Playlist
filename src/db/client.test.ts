@@ -32,10 +32,11 @@ describe("db client", () => {
 
   it("uses the Neon serverless driver so transactions are supported", async () => {
     const clientModule = await import("./client");
+    const db = await clientModule.getDb();
 
     expect(PoolMock).toHaveBeenCalledWith({ connectionString: "postgresql://example" });
     expect(drizzleServerlessMock).toHaveBeenCalled();
     expect(drizzleHttpMock).not.toHaveBeenCalled();
-    expect(clientModule.db).toBe("db-instance");
+    expect(db).toBe("db-instance");
   });
 });

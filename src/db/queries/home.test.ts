@@ -7,10 +7,10 @@ const { findManyMock, selectMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/db/client", () => ({
-  db: {
+  getDb: async () => ({
     query: { playlists: { findMany: findManyMock } },
     select: selectMock,
-  },
+  }),
 }));
 
 import { getPlaylistSummaries } from "./home";

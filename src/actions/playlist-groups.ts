@@ -3,7 +3,7 @@
 import { and, asc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { playlistGroupMembers, playlistGroups, playlists } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 
@@ -27,6 +27,7 @@ export async function savePlaylistGroup(input: z.input<typeof saveGroupInput>): 
   const auth = assertAdminSecret(adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   try {
     await db.transaction(async (tx) => {
       const [saved] = group
@@ -79,6 +80,7 @@ export async function removePlaylistGroup(input: z.input<typeof removeGroupInput
   const auth = assertAdminSecret(adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   const [removed] = await db.delete(playlistGroups)
     .where(and(eq(playlistGroups.id, group.id), eq(playlistGroups.version, group.version)))
     .returning({ id: playlistGroups.id });

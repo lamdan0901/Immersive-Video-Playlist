@@ -1,9 +1,10 @@
 import { asc, eq, isNull } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 
 export async function getPlaylistDetail(id: string) {
+  const db = await getDb();
   const playlist = await db.query.playlists.findFirst({
     where: eq(playlists.id, id),
     with: {

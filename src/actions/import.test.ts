@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { episodes, playlists, sources, sourceSnapshots } from "@/db/schema";
 import {
   createPlaylistFromImportedJson,
+  createPlaylistFromUrl,
   createSourceFromUrl,
   fetchSourceJson,
   performAutoRefresh,
@@ -132,7 +133,7 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/db/client", () => ({
-  db: {
+  getDb: async () => ({
     select: vi.fn(() => ({
       from: () => ({
         where: () => {
@@ -154,7 +155,7 @@ vi.mock("@/db/client", () => ({
       }),
     })),
     transaction: transactionMock,
-  },
+  }),
 }));
 
 vi.mock("./playlists", () => ({
@@ -248,6 +249,28 @@ describe("createSourceFromUrl", () => {
     expect(sourceInsertValues.map((values) => values.sourceTitle)).toEqual([
       "phim.nguonc.com",
     ]);
+  });
+});
+
+describe("createPlaylistFromUrl", () => {
+  it("rejects unrelated sites before fetching", async () => {
+    vi.stubEnv("ADMIN_SECRET", "secret");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      expect(await createPlaylistFromUrl({
+        adminSecret: "secret",
+        sourceUrl: "https://ai-note-keeper-web.vercel.app",
+      })).toEqual({
+        ok: false,
+        error: "Unsupported playlist link. Paste an OPhim or NguonC movie link.",
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
   });
 });
 

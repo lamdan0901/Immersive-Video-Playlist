@@ -327,6 +327,29 @@ describe("PlaylistHomeClient", () => {
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a rejected pasted link inline without logging a console error", async () => {
+    const sourceUrl = "https://ai-note-keeper-web.vercel.app";
+    const error = "Unsupported playlist link. Paste an OPhim or NguonC movie link.";
+    localStorage.setItem("adminSecret", "top-secret");
+    createPlaylistFromUrlMock.mockResolvedValueOnce({ ok: false, error });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      render(<PlaylistHomeClient playlists={playlists} />);
+      const sourceInput = await screen.findByLabelText("Playlist source URL");
+      fireEvent.paste(sourceInput, {
+        clipboardData: { getData: () => sourceUrl },
+      });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(error);
+      expect(sourceInput).toHaveValue(sourceUrl);
+      expect(refreshMock).not.toHaveBeenCalled();
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("does not import a pasted value unless it is a valid HTTP or HTTPS URL", async () => {
     localStorage.setItem("adminSecret", "top-secret");
 

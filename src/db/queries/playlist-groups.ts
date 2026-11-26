@@ -1,8 +1,9 @@
 import { asc } from "drizzle-orm";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { playlistGroupMembers } from "@/db/schema";
 
 export async function getPlaylistGroups() {
+  const db = await getDb();
   return db.query.playlistGroups.findMany({
     with: {
       members: {

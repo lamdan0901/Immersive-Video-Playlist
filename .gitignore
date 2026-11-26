@@ -5,6 +5,8 @@ tsconfig.tsbuildinfo
 test-results/
 playwright-report/
 .env
+.env.local
+.mock-playlists/
 branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat

@@ -28,7 +28,7 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/db/client", () => ({
-  db: {
+  getDb: async () => ({
     select: () => ({
       from: () => ({
         innerJoin: () => ({
@@ -44,7 +44,7 @@ vi.mock("@/db/client", () => ({
       }),
     }),
     transaction: vi.fn(),
-  },
+  }),
 }));
 
 vi.mock("./playlists", () => ({

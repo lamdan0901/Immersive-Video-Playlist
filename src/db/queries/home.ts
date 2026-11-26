@@ -1,5 +1,5 @@
 import { and, asc, desc, inArray, isNull, sql } from "drizzle-orm";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { episodes, playlists, sources } from "@/db/schema";
 import { chooseBanner } from "@/lib/banner";
 import type { SearchablePlaylist } from "@/lib/relevance";
@@ -18,6 +18,7 @@ export type PlaylistSummary = SearchablePlaylist & {
 };
 
 async function fetchPlaylistSummaries(): Promise<PlaylistSummary[]> {
+  const db = await getDb();
   const playlistRows = await db.query.playlists.findMany({
     where: isNull(playlists.deletedAt),
     orderBy: [

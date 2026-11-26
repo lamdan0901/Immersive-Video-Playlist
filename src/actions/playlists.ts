@@ -2,7 +2,7 @@
 
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { db } from "@/db/client";
+import { getDb } from "@/db/client";
 import { mutationLogs, playlists, sources, thirtyDaysFromNow } from "@/db/schema";
 import { assertAdminSecret, type ActionResult } from "@/lib/admin";
 import type { LinkType } from "@/lib/types";
@@ -17,6 +17,7 @@ function conflict<T = void>(message: string): ActionResult<T> {
 }
 
 export async function logMutation(kind: typeof mutationLogs.$inferInsert.kind, summary: string, entityId?: string) {
+  const db = await getDb();
   await db.insert(mutationLogs).values({ kind, summary, entityId });
 }
 
@@ -36,6 +37,7 @@ export async function updatePlaylistTitle(input: {
 
   const nextTitle = input.title.trim() || "Untitled Playlist";
   const nextSkipStartSeconds = Math.max(0, Math.floor(input.skipStartSeconds));
+  const db = await getDb();
   const result = await db
     .update(playlists)
     .set({
@@ -66,6 +68,7 @@ export async function softDeletePlaylist(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   const result = await db
     .update(playlists)
     .set({
@@ -99,6 +102,7 @@ export async function togglePinPlaylist(input: {
   if (!auth.ok) return auth;
 
   let nextPinnedOrder = 0;
+  const db = await getDb();
   if (input.pinned) {
     const maxResult = await db
       .select({ maxOrder: sql<number>`coalesce(max(${playlists.pinnedOrder}), -1)` })
@@ -138,6 +142,7 @@ export async function toggleAutoRefreshPlaylist(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   const result = await db
     .update(playlists)
     .set({
@@ -173,6 +178,7 @@ export async function updateSource(input: {
 
   const nextTitle = input.sourceTitle.trim() || "New Source";
   const nextUrl = input.sourceUrl.trim();
+  const db = await getDb();
   const result = await db
     .update(sources)
     .set({
@@ -218,6 +224,7 @@ export async function createBlankSource(input: {
   const nextUrl = input.sourceUrl?.trim() ?? "";
   const nextLinkType = input.preferredLinkType ?? "embed";
 
+  const db = await getDb();
   const result = await db.transaction(async (tx) => {
     const playlistResult = await tx
       .update(playlists)
@@ -272,6 +279,7 @@ export async function softDeleteSource(input: {
   const auth = assertAdminSecret(input.adminSecret);
   if (!auth.ok) return auth;
 
+  const db = await getDb();
   const deleted = await db.transaction(async (tx) => {
     const playlistResult = await tx
       .update(playlists)

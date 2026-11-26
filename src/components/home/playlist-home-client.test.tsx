@@ -35,6 +35,11 @@ vi.mock("@/actions/playlists", () => ({
   togglePinPlaylist: togglePinPlaylistMock,
 }));
 
+vi.mock("@/actions/playlist-groups", () => ({
+  savePlaylistGroup: vi.fn(),
+  removePlaylistGroup: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     refresh: refreshMock,

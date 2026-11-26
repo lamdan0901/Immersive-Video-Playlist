@@ -7,10 +7,14 @@ import {
   createPlaylistFromUrl,
 } from "@/actions/import";
 import type { PlaylistSummary } from "@/db/queries/home";
+import type { PlaylistGroup } from "@/db/queries/playlist-groups";
 import { fetchImportPayloadInBrowser, isNguoncUrl } from "@/lib/importers";
 import { rankPlaylists } from "@/lib/relevance";
 import { AdminUnlockModal } from "@/components/admin/admin-unlock-modal";
 import { PlaylistCard } from "./playlist-card";
+import { PlaylistGroupCard } from "./playlist-group-card";
+import { PlaylistGroupDialog } from "./playlist-group-dialog";
+import { buildPlaylistLibrary } from "./playlist-library";
 
 function isPlaylistSourceUrl(value: string) {
   if (!/^https?:\/\/\S+$/i.test(value)) return false;
@@ -25,8 +29,10 @@ function isPlaylistSourceUrl(value: string) {
 
 export function PlaylistHomeClient({
   playlists,
+  groups = [],
 }: {
   playlists: PlaylistSummary[];
+  groups?: PlaylistGroup[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -35,10 +41,13 @@ export function PlaylistHomeClient({
   const [sourceUrl, setSourceUrl] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const submitLockRef = useRef(false);
-  const ranked = rankPlaylists(playlists, query);
+  const library = buildPlaylistLibrary(playlists, groups);
+  const ranked = rankPlaylists([...library.standalone, ...library.groups], query);
   const pinnedPlaylists = ranked.filter((p) => p.pinned);
   const unpinnedPlaylists = ranked.filter((p) => !p.pinned);
+  const openGroup = library.groups.find((entry) => entry.id === openGroupId);
 
   useEffect(() => {
     setIsUnlocked(Boolean(localStorage.getItem("adminSecret")));
@@ -127,6 +136,12 @@ export function PlaylistHomeClient({
     await handleCreatePlaylist(url);
   }
 
+  function renderCard(entry: (typeof ranked)[number]) {
+    return "group" in entry
+      ? <PlaylistGroupCard key={entry.id} entry={entry} onOpen={() => setOpenGroupId(entry.id)} />
+      : <PlaylistCard key={entry.id} playlist={entry} />;
+  }
+
   return (
     <>
       <header className="home-toolbar">
@@ -144,7 +159,17 @@ export function PlaylistHomeClient({
             placeholder="Search playlists"
             aria-label="Search playlists"
           />
-          {!isUnlocked ? (
+          {isUnlocked ? (
+            <button
+              type="button"
+              className="ghost-button"
+              aria-haspopup="dialog"
+              disabled={!library.standalone.length}
+              onClick={() => setOpenGroupId("new")}
+            >
+              New group
+            </button>
+          ) : (
             <button
               type="button"
               className="accent-button"
@@ -152,7 +177,7 @@ export function PlaylistHomeClient({
             >
               Admin Unlock
             </button>
-          ) : null}
+          )}
         </div>
         {isUnlocked ? (
           <form className="home-import-form" onSubmit={handleSubmit}>
@@ -192,9 +217,7 @@ export function PlaylistHomeClient({
         <section>
           <h3 className="playlist-section-heading">Pinned</h3>
           <div className="playlist-grid">
-            {pinnedPlaylists.map((playlist) => (
-              <PlaylistCard key={playlist.id} playlist={playlist} />
-            ))}
+            {pinnedPlaylists.map(renderCard)}
           </div>
         </section>
       ) : null}
@@ -204,14 +227,21 @@ export function PlaylistHomeClient({
             <h3 className="playlist-section-heading">All playlists</h3>
           ) : null}
           <div className="playlist-grid">
-            {unpinnedPlaylists.map((playlist) => (
-              <PlaylistCard key={playlist.id} playlist={playlist} />
-            ))}
+            {unpinnedPlaylists.map(renderCard)}
           </div>
         </section>
       ) : null}
       {!ranked.length ? (
         <p className="playlist-empty">No playlists match that search.</p>
+      ) : null}
+      {openGroup || openGroupId === "new" ? (
+        <PlaylistGroupDialog
+          key={openGroupId}
+          entry={openGroup}
+          standalone={library.standalone}
+          canEdit={isUnlocked}
+          onClose={() => setOpenGroupId(null)}
+        />
       ) : null}
       <AdminUnlockModal
         open={unlockOpen}

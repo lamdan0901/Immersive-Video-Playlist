@@ -55,6 +55,21 @@ export const playlists = pgTable("playlists", {
   pinnedIdx: index("playlists_pinned_idx").on(table.pinned, table.pinnedOrder)
 }));
 
+export const playlistGroups = pgTable("playlist_groups", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  note: text("note").notNull(),
+  version: integer("version").notNull().default(1)
+});
+
+export const playlistGroupMembers = pgTable("playlist_group_members", {
+  playlistId: uuid("playlist_id").primaryKey().references(() => playlists.id, { onDelete: "cascade" }),
+  groupId: uuid("group_id").notNull().references(() => playlistGroups.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").notNull()
+}, (table) => ({
+  groupOrderIdx: index("playlist_group_members_order_idx").on(table.groupId, table.sortOrder)
+}));
+
 export const sources = pgTable("sources", {
   id: uuid("id").primaryKey().defaultRandom(),
   playlistId: uuid("playlist_id").notNull().references(() => playlists.id, { onDelete: "cascade" }),
@@ -123,6 +138,14 @@ export const mutationLogs = pgTable("mutation_logs", {
 
 export const playlistsRelations = relations(playlists, ({ many }) => ({
   sources: many(sources)
+}));
+
+export const playlistGroupsRelations = relations(playlistGroups, ({ many }) => ({
+  members: many(playlistGroupMembers)
+}));
+
+export const playlistGroupMembersRelations = relations(playlistGroupMembers, ({ one }) => ({
+  group: one(playlistGroups, { fields: [playlistGroupMembers.groupId], references: [playlistGroups.id] })
 }));
 
 export const sourcesRelations = relations(sources, ({ one, many }) => ({

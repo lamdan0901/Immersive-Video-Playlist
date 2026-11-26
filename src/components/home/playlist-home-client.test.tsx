@@ -167,7 +167,7 @@ describe("PlaylistHomeClient", () => {
     });
   });
 
-  it("shows a disabled add playlist button while locked", () => {
+  it("shows admin unlock and hides the import form while locked", () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
     expect(
@@ -176,9 +176,11 @@ describe("PlaylistHomeClient", () => {
     expect(
       screen.queryByRole("button", { name: "Add playlist" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Playlist source URL")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Search playlists")).toBeInTheDocument();
   });
 
-  it("hides unlock and enables add playlist when a stored secret exists", async () => {
+  it("shows the import field when a stored secret exists", async () => {
     localStorage.setItem("adminSecret", "top-secret");
 
     render(<PlaylistHomeClient playlists={playlists} />);
@@ -188,10 +190,11 @@ describe("PlaylistHomeClient", () => {
         screen.queryByRole("button", { name: "Admin Unlock" }),
       ).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
+    expect(screen.getByLabelText("Playlist source URL")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add playlist" })).toBeDisabled();
   });
 
-  it("enables add playlist after unlocking from the toolbar", async () => {
+  it("shows the import field after unlocking from the toolbar", async () => {
     render(<PlaylistHomeClient playlists={playlists} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Admin Unlock" }));
@@ -202,7 +205,7 @@ describe("PlaylistHomeClient", () => {
         screen.queryByRole("button", { name: "Admin Unlock" }),
       ).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Add playlist" })).toBeEnabled();
+    expect(screen.getByLabelText("Playlist source URL")).toBeVisible();
   });
 
   it("submits a new playlist URL from the inline toolbar form", async () => {
@@ -210,62 +213,52 @@ describe("PlaylistHomeClient", () => {
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Add playlist" }),
-      ).toBeEnabled();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
-    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
+    const sourceInput = await screen.findByLabelText("Playlist source URL");
+    fireEvent.change(sourceInput, {
       target: {
         value: "https://ophim1.com/v1/api/phim/fate-chooses-you",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
 
     await waitFor(() => {
       expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
         adminSecret: "top-secret",
         sourceUrl: "https://ophim1.com/v1/api/phim/fate-chooses-you",
       });
+      expect(sourceInput).toHaveValue("");
     });
 
     expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByLabelText("Playlist source URL"),
-    ).not.toBeInTheDocument();
+    expect(sourceInput).toBeVisible();
   });
 
-  it("ignores a second submit while the import request is already in flight", async () => {
+  it("ignores a second paste while the import request is in flight", async () => {
     localStorage.setItem("adminSecret", "top-secret");
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Add playlist" }),
-      ).toBeEnabled();
+    const sourceInput = await screen.findByLabelText("Playlist source URL");
+    fireEvent.paste(sourceInput, {
+      clipboardData: {
+        getData: () => "https://ophim1.com/v1/api/phim/fate-chooses-you",
+      },
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
-    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
-      target: {
-        value: "https://ophim1.com/v1/api/phim/fate-chooses-you",
+    fireEvent.paste(sourceInput, {
+      clipboardData: {
+        getData: () => "https://ophim1.com/v1/api/phim/pinned-show",
       },
     });
 
-    const importButton = screen.getByRole("button", {
-      name: "Import playlist",
-    });
-    fireEvent.click(importButton);
-    fireEvent.click(importButton);
-
     await waitFor(() => {
-      expect(createPlaylistFromUrlMock).toHaveBeenCalledTimes(1);
+      expect(refreshMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(createPlaylistFromUrlMock).toHaveBeenCalledTimes(1);
+    expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
+      adminSecret: "top-secret",
+      sourceUrl: "https://ophim1.com/v1/api/phim/fate-chooses-you",
+    });
   });
 
   it("fetches NguonC imports in the browser and sends the payload to the server action", async () => {
@@ -277,19 +270,12 @@ describe("PlaylistHomeClient", () => {
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Add playlist" }),
-      ).toBeEnabled();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
-    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
-      target: {
-        value: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
+    const sourceInput = await screen.findByLabelText("Playlist source URL");
+    fireEvent.paste(sourceInput, {
+      clipboardData: {
+        getData: () => " https://phim.nguonc.com/phim/huyen-thoai-linh-bep \n",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
 
     await waitFor(() => {
       expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
@@ -316,19 +302,13 @@ describe("PlaylistHomeClient", () => {
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Add playlist" }),
-      ).toBeEnabled();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
-    fireEvent.change(screen.getByLabelText("Playlist source URL"), {
+    const sourceInput = await screen.findByLabelText("Playlist source URL");
+    fireEvent.change(sourceInput, {
       target: {
         value: "https://phim.nguonc.com/phim/huyen-thoai-linh-bep",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Import playlist" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
 
     await waitFor(() => {
       expect(createPlaylistFromUrlMock).toHaveBeenCalledWith({
@@ -342,20 +322,19 @@ describe("PlaylistHomeClient", () => {
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
-  it("autofocuses the playlist source URL input when the inline form opens", async () => {
+  it("does not import a pasted value unless it is a valid HTTP or HTTPS URL", async () => {
     localStorage.setItem("adminSecret", "top-secret");
 
     render(<PlaylistHomeClient playlists={playlists} />);
 
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Add playlist" }),
-      ).toBeEnabled();
+    const sourceInput = await screen.findByLabelText("Playlist source URL");
+    fireEvent.paste(sourceInput, {
+      clipboardData: { getData: () => "ftp://example.com/playlist.json" },
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "Add playlist" }));
-
-    expect(screen.getByLabelText("Playlist source URL")).toHaveFocus();
+    fireEvent.paste(sourceInput, {
+      clipboardData: { getData: () => "https://[invalid" },
+    });
+    expect(createPlaylistFromUrlMock).not.toHaveBeenCalled();
   });
 
   it("shows a delete action on right click and deletes the playlist without confirmation", async () => {

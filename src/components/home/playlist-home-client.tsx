@@ -12,6 +12,17 @@ import { rankPlaylists } from "@/lib/relevance";
 import { AdminUnlockModal } from "@/components/admin/admin-unlock-modal";
 import { PlaylistCard } from "./playlist-card";
 
+function isPlaylistSourceUrl(value: string) {
+  if (!/^https?:\/\/\S+$/i.test(value)) return false;
+
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function PlaylistHomeClient({
   playlists,
 }: {
@@ -20,7 +31,6 @@ export function PlaylistHomeClient({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [unlockOpen, setUnlockOpen] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [sourceUrl, setSourceUrl] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -44,8 +54,7 @@ export function PlaylistHomeClient({
     return /^Import request failed with (403|429)$/.test(errorMessage.trim());
   }
 
-  async function handleCreatePlaylist(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleCreatePlaylist(trimmedSourceUrl: string) {
     if (submitLockRef.current) {
       return;
     }
@@ -61,7 +70,6 @@ export function PlaylistHomeClient({
     setSubmitError("");
 
     try {
-      const trimmedSourceUrl = sourceUrl.trim();
       let result = await createPlaylistFromUrl({
         adminSecret,
         sourceUrl: trimmedSourceUrl,
@@ -87,7 +95,6 @@ export function PlaylistHomeClient({
       }
 
       setSourceUrl("");
-      setShowAddForm(false);
       router.refresh();
     } catch (error) {
       console.error("[handleCreatePlaylist] failed:", error);
@@ -98,14 +105,26 @@ export function PlaylistHomeClient({
     }
   }
 
-  function handleUnlocked() {
-    setIsUnlocked(true);
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const url = sourceUrl.trim();
+    if (!isPlaylistSourceUrl(url)) {
+      setSubmitError("Enter a valid HTTP or HTTPS URL.");
+      return;
+    }
+
+    await handleCreatePlaylist(url);
   }
 
-  function handleCancelAdd() {
-    setSourceUrl("");
-    setSubmitError("");
-    setShowAddForm(false);
+  async function handlePaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    const url = event.clipboardData.getData("text/plain").trim();
+    if (!isPlaylistSourceUrl(url)) return;
+
+    event.preventDefault();
+    if (submitLockRef.current) return;
+
+    setSourceUrl(url);
+    await handleCreatePlaylist(url);
   }
 
   return (
@@ -125,19 +144,7 @@ export function PlaylistHomeClient({
             placeholder="Search playlists"
             aria-label="Search playlists"
           />
-          {isUnlocked ? (
-            <button
-              type="button"
-              className="accent-button"
-              disabled={!isUnlocked}
-              onClick={() => {
-                setShowAddForm(true);
-                setSubmitError("");
-              }}
-            >
-              Add playlist
-            </button>
-          ) : (
+          {!isUnlocked ? (
             <button
               type="button"
               className="accent-button"
@@ -145,52 +152,38 @@ export function PlaylistHomeClient({
             >
               Admin Unlock
             </button>
-          )}
+          ) : null}
         </div>
-        {showAddForm ? (
-          <form className="home-import-panel" onSubmit={handleCreatePlaylist}>
-            <div className="home-import-panel-copy">
-              <p className="home-import-panel-eyebrow">Quick import</p>
-              <h2>Import a playlist from a JSON source</h2>
-              <p>
-                Paste a direct playlist JSON URL. The app will create the
-                playlist and pull in its episodes.
-              </p>
-            </div>
-            <label className="home-import-field">
-              <span>Playlist source URL</span>
-              <div className="home-import-input-shell">
-                <span className="home-import-input-icon" aria-hidden="true">
-                  link
-                </span>
-                <input
-                  aria-label="Playlist source URL"
-                  autoFocus
-                  placeholder="https://ophim1.com/v1/api/phim/fate-chooses-you"
-                  value={sourceUrl}
-                  onChange={(event) => setSourceUrl(event.target.value)}
-                />
-              </div>
-            </label>
-            <div className="home-import-actions">
-              <button
-                type="submit"
-                className="accent-button"
-                disabled={isSubmitting || !sourceUrl.trim()}
-              >
-                {isSubmitting ? "Importing..." : "Import playlist"}
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                disabled={isSubmitting}
-                onClick={handleCancelAdd}
-              >
-                Cancel
-              </button>
-            </div>
+        {isUnlocked ? (
+          <form className="home-import-form" onSubmit={handleSubmit}>
+            <input
+              inputMode="url"
+              aria-label="Playlist source URL"
+              aria-describedby={submitError ? "home-import-error" : undefined}
+              placeholder="Paste a playlist link"
+              readOnly={isSubmitting}
+              value={sourceUrl}
+              onChange={(event) => {
+                setSourceUrl(event.target.value);
+                setSubmitError("");
+              }}
+              onPaste={handlePaste}
+            />
+            <button
+              type="submit"
+              className="accent-button"
+              disabled={isSubmitting || !sourceUrl.trim()}
+            >
+              {isSubmitting ? "Importing..." : "Add playlist"}
+            </button>
             {submitError ? (
-              <p className="home-toolbar-inline-error">{submitError}</p>
+              <p
+                id="home-import-error"
+                role="alert"
+                className="home-toolbar-inline-error"
+              >
+                {submitError}
+              </p>
             ) : null}
           </form>
         ) : null}
@@ -223,7 +216,7 @@ export function PlaylistHomeClient({
       <AdminUnlockModal
         open={unlockOpen}
         onClose={() => setUnlockOpen(false)}
-        onUnlocked={handleUnlocked}
+        onUnlocked={() => setIsUnlocked(true)}
       />
     </>
   );
